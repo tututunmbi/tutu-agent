@@ -96,6 +96,8 @@ class CalendarManager:
             return {"success": True, "events": formatted, "date": date_str or "today", "days": days}
 
         except Exception as e:
+                        print(f"CALENDAR GET_EVENTS ERROR: {type(e).__name__}: {e}")
+                        traceback.print_exc()
             return {"success": False, "error": str(e)}
 
     def create_event(
