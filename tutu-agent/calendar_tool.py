@@ -1,5 +1,5 @@
 """
-Google Calendar integration â Imani's hands for time management.
+Google Calendar integration — Imani's hands for time management.
 Uses a service account for authentication.
 """
 import os
@@ -290,50 +290,3 @@ class CalendarManager:
 
         except Exception as e:
             return {"success": False, "error": str(e)}
-     try:
-            result = self.get_events(date_str, days=1)
-            if not result["success"]:
-                return result
-
-            events = result["events"]
-
-            # Define working hours (9 AM to 8 PM)
-            work_start = 9 * 60  # minutes from midnight
-            work_end = 20 * 60
-
-            busy = []
-            for evt in events:
-                start = evt["start"]
-                end = evt["end"]
-                # Parse times to minutes
-                if "T" in start:
-                    s_hour, s_min = int(start[11:13]), int(start[14:16])
-                    e_hour, e_min = int(end[11:13]), int(end[14:16])
-                    busy.append((s_hour * 60 + s_min, e_hour * 60 + e_min))
-
-            busy.sort()
-
-            # Find gaps
-            free_slots = []
-            current = work_start
-            for start, end in busy:
-                if start - current >= duration_minutes:
-                    free_slots.append({
-                        "start": f"{current // 60:02d}:{current % 60:02d}",
-                        "end": f"{start // 60:02d}:{start % 60:02d}",
-                        "duration_minutes": start - current,
-                    })
-                current = max(current, end)
-
-            if work_end - current >= duration_minutes:
-                free_slots.append({
-                    "start": f"{current // 60:02d}:{current % 60:02d}",
-                    "end": f"{work_end // 60:02d}:{work_end % 60:02d}",
-                    "duration_minutes": work_end - current,
-                })
-
-            return {"success": True, "date": date_str, "free_slots": free_slots}
-
-        except Exception as e:
-            return {"success": False, "error": str(e)}
-
