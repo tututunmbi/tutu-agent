@@ -31,7 +31,6 @@ def build_system_prompt():
     leila_lens = load_reference("leila-lens.md")
     acq_lessons = load_reference("acq-lessons.md")
     operations = load_reference("operations.md")
-    history = load_reference("conversation-history.md")
 
     today = datetime.now().strftime("%A, %B %d, %Y")
 
@@ -144,10 +143,6 @@ You have access to conversation history. Use it. Reference past conversations, d
 ## REFERENCE: OPERATIONS (TRACKER, CALENDAR, CHANNELS)
 {operations}
 
----
-
-## REFERENCE: FULL CONVERSATION HISTORY AND CONTEXT
-{history}
 """
 
 
@@ -495,7 +490,7 @@ class TutuAdvisor:
         # Get conversation history for context
         history = []
         if self.memory:
-            history = self.memory.get_recent_messages(limit=20)
+            history = self.memory.get_recent_messages(limit=10)
 
         # Build messages array
         messages = []
@@ -511,7 +506,7 @@ class TutuAdvisor:
                 response = self.client.messages.create(
                     model=MODEL,
                     max_tokens=4096,
-                    system=self.system_prompt,
+                    system=[{"type": "text", "text": self.system_prompt, "cache_control": {"type": "ephemeral"}}],
                     messages=messages,
                     tools=TOOLS,
                 )
