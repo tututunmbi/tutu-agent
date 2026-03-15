@@ -75,10 +75,10 @@ class CalendarManager:
                 timeMax=time_max,
                 maxResults=50,
                 singleEvents=True,
-                orderBy="startTime",
+                orderBy="startTime", timeZone=os.getenv("TUTU_TIMEZONE", "Africa/Lagos"),
             ).execute()
 
-            events = events_result.get("items", [])
+            events = events_result.get("items", []); print(f"CALENDAR DEBUG: cal={TUTU_CALENDAR_ID} date={date_str} min={time_min} max={time_max} found={len(events)} titles={[e.get('summary','') for e in events]}")
             formatted = []
             for event in events:
                 start = event["start"].get("dateTime", event["start"].get("date"))
