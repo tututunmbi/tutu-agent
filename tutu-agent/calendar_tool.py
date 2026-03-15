@@ -69,16 +69,32 @@ class CalendarManager:
             time_min = start_date.isoformat() + "Z"
             time_max = end_date.isoformat() + "Z"
 
-            events_result = self.service.events().list(
-                calendarId=TUTU_CALENDAR_ID,
-                timeMin=time_min,
-                timeMax=time_max,
-                maxResults=50,
-                singleEvents=True,
-                orderBy="startTime", timeZone=os.getenv("TUTU_TIMEZONE", "Africa/Lagos"),
-            ).execute()
+            # Query ALL calendars (not just primary) to catch events on shared/secondary calendars
+            tz = os.getenv("TUTU_TIMEZONE", "Africa/Lagos")
+            try:
+                cal_list_result = self.service.calendarList().list().execute()
+                all_cal_ids = [cal["id"] for cal in cal_list_result.get("items", [])]
+            except Exception:
+                all_cal_ids = [TUTU_CALENDAR_ID]
+            print(f"CALENDAR DEBUG: querying {len(all_cal_ids)} calendars: {all_cal_ids}")
 
-            events = events_result.get("items", []); print(f"CALENDAR DEBUG: cal={TUTU_CALENDAR_ID} date={date_str} min={time_min} max={time_max} found={len(events)} titles={[e.get('summary','') for e in events]}")
+            events = []
+            for cal_id in all_cal_ids:
+                try:
+                    events_result = self.service.events().list(
+                        calendarId=cal_id,
+                        timeMin=time_min,
+                        timeMax=time_max,
+                        maxResults=50,
+                        singleEvents=True,
+                        orderBy="startTime",
+                        timeZone=tz,
+                    ).execute()
+                    cal_events = events_result.get("items", [])
+                    print(f"CALENDAR DEBUG: cal={cal_id} found={len(cal_events)} titles={[e.get('summary','') for e in cal_events]}")
+                    events.extend(cal_events)
+                except Exception as cal_err:
+                    print(f"CALENDAR DEBUG: error querying {cal_id}: {cal_err}")
             formatted = []
             for event in events:
                 start = event["start"].get("dateTime", event["start"].get("date"))
