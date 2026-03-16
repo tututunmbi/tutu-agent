@@ -1,5 +1,5 @@
 """
-Imani — The brain with hands.
+Imani â The brain with hands.
 Claude API integration with tool use, agentic loop, and full advisor context.
 """
 import os
@@ -57,7 +57,7 @@ Today's date: {today}
 
 ## CRITICAL CONTEXT
 
-Tutu is currently in PHASE 1: THE FOUNDATION (Year 1-2) — "Do the Work"
+Tutu is currently in PHASE 1: THE FOUNDATION (Year 1-2) â "Do the Work"
 
 Her ONLY priorities right now:
 - Serve Stamfordham clients excellently and document the methodology
@@ -75,7 +75,7 @@ If she starts talking about Phase 2, 3, or 4 things (venture building, book laun
 - Location: Lagos, Nigeria
 - Timezone: Africa/Lagos (WAT, UTC+1)
 - Businesses: Stamfordham Global Limited (pivoting to strategic management), CorpCI/C2I (future state)
-- Event: TDPF (The Digital Professional Fair) — October 29, 2026, Lagos
+- Event: TDPF (The Digital Professional Fair) â October 29, 2026, Lagos
 - Side project: MnOb (brand touchpoint ONLY in Phase 1)
 - Team: Jessica (content creator, Delegation Level 1), Blessing + Victor (TDPF deck), Naomi (design), Kitan (videographer)
 - Life coach: Nomshado (meets weekly/biweekly)
@@ -86,7 +86,7 @@ If she starts talking about Phase 2, 3, or 4 things (venture building, book laun
 - Active clients: Ejiro of Ginger, Nnenna of Koyo
 - Sign-off: "Build, or be built upon."
 
-## THE CREED (PRIVATE — NEVER DISPLAY PUBLICLY)
+## THE CREED (PRIVATE â NEVER DISPLAY PUBLICLY)
 Tutu has a private creed that fuels her work. The advisor KNOWS this exists to advise better but NEVER puts it on display or includes it in content.
 
 ## Response Style and Voice Rules
@@ -122,6 +122,17 @@ If multiple tools are needed, chain them. For example, if Tutu says "Prepare me 
 
 ## MEMORY CONTEXT
 You have access to conversation history. Use it. Reference past conversations, decisions, and commitments.
+
+## ACTIVE DAY PLAN â CRITICAL RULES
+You have a persistent day plan system. When you create a schedule or day plan for Tutu, you MUST save it using the save_day_plan tool. This plan will be pinned into your memory on EVERY subsequent message, so you will never lose track of it.
+
+**RULES YOU MUST FOLLOW:**
+1. When you create a day schedule, IMMEDIATELY call save_day_plan to persist it
+2. When Tutu adds new tasks or priorities mid-day, call update_day_plan to recalibrate the schedule (not replace â adjust around existing commitments)
+3. BEFORE creating any calendar event or suggesting any time block, CHECK the active day plan first
+4. NEVER contradict the day plan without explicitly acknowledging the conflict and asking Tutu how she wants to adjust
+5. When Tutu asks "what should I do next?" or "what's next?", reference the day plan and the current time
+6. If the day plan needs to change because new priorities came up, show Tutu the FULL updated plan so she can see what moved
 
 ---
 
@@ -359,6 +370,42 @@ TOOLS = [
             "required": []
         }
     },
+    {
+        "name": "save_day_plan",
+        "description": "Save or replace the day plan/schedule for a specific date. ALWAYS call this immediately after creating a day schedule for Tutu. The plan will be pinned into your context on every subsequent message so you never lose track of it.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "date": {
+                    "type": "string",
+                    "description": "Date in YYYY-MM-DD format"
+                },
+                "plan_text": {
+                    "type": "string",
+                    "description": "The full day plan/schedule as formatted text. Include all time blocks, tasks, and success markers."
+                }
+            },
+            "required": ["date", "plan_text"]
+        }
+    },
+    {
+        "name": "update_day_plan",
+        "description": "Update/recalibrate the active day plan when new priorities come up or the schedule needs adjustment. Use this instead of save_day_plan when modifying an existing plan. Show Tutu what changed.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "date": {
+                    "type": "string",
+                    "description": "Date in YYYY-MM-DD format"
+                },
+                "plan_text": {
+                    "type": "string",
+                    "description": "The updated full day plan with adjustments incorporated"
+                }
+            },
+            "required": ["date", "plan_text"]
+        }
+    },
 ]
 
 
@@ -477,6 +524,25 @@ class TutuAdvisor:
                     "timezone": "Africa/Lagos (WAT)"
                 })
 
+            # Day plan tools
+            elif tool_name == "save_day_plan":
+                if self.memory:
+                    self.memory.save_day_plan(
+                        date=tool_input["date"],
+                        plan_text=tool_input["plan_text"]
+                    )
+                    return json.dumps({"success": True, "message": f"Day plan saved for {tool_input['date']}. It will be pinned into your context on every message."})
+                return json.dumps({"success": False, "error": "Memory not initialized."})
+
+            elif tool_name == "update_day_plan":
+                if self.memory:
+                    self.memory.update_day_plan(
+                        date=tool_input["date"],
+                        plan_text=tool_input["plan_text"]
+                    )
+                    return json.dumps({"success": True, "message": f"Day plan updated for {tool_input['date']}."})
+                return json.dumps({"success": False, "error": "Memory not initialized."})
+
             else:
                 return json.dumps({"success": False, "error": f"Unknown tool: {tool_name}"})
 
@@ -490,10 +556,19 @@ class TutuAdvisor:
         # Get conversation history for context
         history = []
         if self.memory:
-            history = self.memory.get_recent_messages(limit=10)
+            history = self.memory.get_recent_messages(limit=20)
 
         # Build messages array
         messages = []
+
+        # Inject active day plan as persistent context (never falls off)
+        if self.memory:
+            day_plan = self.memory.get_day_plan()
+            if day_plan:
+                plan_context = f"[ACTIVE DAY PLAN for {day_plan['date']} â last updated {day_plan['updated_at']}]\n{day_plan['plan_text']}\n[END DAY PLAN â Always reference this before scheduling or suggesting next actions]"
+                messages.append({"role": "user", "content": plan_context})
+                messages.append({"role": "assistant", "content": "I have today's day plan loaded and will reference it for all scheduling decisions."})
+
         for msg in history:
             messages.append({"role": msg["role"], "content": msg["content"]})
         messages.append({"role": "user", "content": message})
@@ -506,7 +581,13 @@ class TutuAdvisor:
                 response = self.client.messages.create(
                     model=MODEL,
                     max_tokens=4096,
-                    system=[{"type": "text", "text": self.system_prompt, "cache_control": {"type": "ephemeral"}}],
+                    system=[
+                        {
+                            "type": "text",
+                            "text": self.system_prompt,
+                            "cache_control": {"type": "ephemeral"}
+                        }
+                    ],
                     messages=messages,
                     tools=TOOLS,
                 )
@@ -583,4 +664,3 @@ Use your tools to check the calendar and content schedule. Pull from recent conv
             prompt = f"Generate a {checkin_type} check-in for Tutu based on recent conversation history."
 
         return await self.chat(prompt, source="scheduler")
-
