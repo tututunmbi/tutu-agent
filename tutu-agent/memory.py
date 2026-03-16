@@ -1,5 +1,5 @@
 """
-Persistent memory — stores conversations, decisions, insights.
+Persistent memory â stores conversations, decisions, insights.
 Uses SQLite so it works on Railway with persistent storage.
 """
 import os
@@ -49,6 +49,17 @@ class ConversationMemory:
                 metric TEXT NOT NULL,
                 value TEXT NOT NULL,
                 notes TEXT DEFAULT ''
+            )
+        """)
+
+        c.execute("""
+            CREATE TABLE IF NOT EXISTS day_plans (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                date TEXT NOT NULL,
+                plan_text TEXT NOT NULL,
+                status TEXT DEFAULT 'active',
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
             )
         """)
 
@@ -157,3 +168,57 @@ class ConversationMemory:
         rows = c.fetchall()
         conn.close()
         return [{"role": r[0], "content": r[1], "timestamp": r[2]} for r in rows]
+
+    # === DAY PLAN METHODS ===
+
+    def save_day_plan(self, date: str, plan_text: str) -> bool:
+        """Save or replace the day plan for a given date."""
+        conn = sqlite3.connect(self.db_path)
+        c = conn.cursor()
+        now = datetime.now().isoformat()
+        # Deactivate any existing plan for this date
+        c.execute(
+            "UPDATE day_plans SET status = 'replaced', updated_at = ? WHERE date = ? AND status = 'active'",
+            (now, date)
+        )
+        # Insert new plan
+        c.execute(
+            "INSERT INTO day_plans (date, plan_text, status, created_at, updated_at) VALUES (?, ?, 'active', ?, ?)",
+            (date, plan_text, now, now)
+        )
+        conn.commit()
+        conn.close()
+        return True
+
+    def get_day_plan(self, date: str = None) -> dict:
+        """Get the active day plan for a date (defaults to today)."""
+        if date is None:
+            date = datetime.now().strftime("%Y-%m-%d")
+        conn = sqlite3.connect(self.db_path)
+        c = conn.cursor()
+        c.execute(
+            "SELECT plan_text, created_at, updated_at FROM day_plans WHERE date = ? AND status = 'active' ORDER BY id DESC LIMIT 1",
+            (date,)
+        )
+        row = c.fetchone()
+        conn.close()
+        if row:
+            return {"date": date, "plan_text": row[0], "created_at": row[1], "updated_at": row[2]}
+        return None
+
+    def update_day_plan(self, date: str, plan_text: str) -> bool:
+        """Update the active day plan for a date (used for recalibrations)."""
+        conn = sqlite3.connect(self.db_path)
+        c = conn.cursor()
+        now = datetime.now().isoformat()
+        c.execute(
+            "UPDATE day_plans SET plan_text = ?, updated_at = ? WHERE date = ? AND status = 'active'",
+            (plan_text, now, date)
+        )
+        updated = c.rowcount > 0
+        conn.commit()
+        conn.close()
+        if not updated:
+            # No existing plan, create one
+            return self.save_day_plan(date, plan_text)
+        return True
