@@ -33,7 +33,7 @@ scheduler = AsyncIOScheduler()
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Startup and shutdown events."""
-    setup_schedules(scheduler, advisor, memory)
+    setup_schedules(scheduler, advisor, memory, gmail=gmail)
     scheduler.start()
     logger.info("Imani is online. Calendar: %s | Sheets: %s | Gmail: %s",
                 "connected" if calendar.is_connected() else "not configured",
