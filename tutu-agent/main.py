@@ -1,6 +1,5 @@
 """
-
-Tutu's Strategic AI Advisor — API Agent
+Tutu's Strategic AI Advisor â API Agent
 Deployed on Railway, connected via WhatsApp (Twilio)
 """
 import os
@@ -16,6 +15,7 @@ from agent import TutuAdvisor
 from memory import ConversationMemory
 from sheets import SheetsManager
 from calendar_tool import CalendarManager
+from gmail import GmailManager
 from scheduler import setup_schedules
 
 logging.basicConfig(level=logging.INFO)
@@ -25,7 +25,8 @@ logger = logging.getLogger(__name__)
 memory = ConversationMemory()
 sheets = SheetsManager()
 calendar = CalendarManager()
-advisor = TutuAdvisor(memory=memory, sheets=sheets, calendar=calendar)
+gmail = GmailManager()
+advisor = TutuAdvisor(memory=memory, sheets=sheets, calendar=calendar, gmail=gmail)
 scheduler = AsyncIOScheduler()
 
 
@@ -34,15 +35,16 @@ async def lifespan(app: FastAPI):
     """Startup and shutdown events."""
     setup_schedules(scheduler, advisor, memory)
     scheduler.start()
-    logger.info("Imani is online. Calendar: %s | Sheets: %s",
+    logger.info("Imani is online. Calendar: %s | Sheets: %s | Gmail: %s",
                 "connected" if calendar.is_connected() else "not configured",
-                "connected" if sheets.is_connected() else "not configured")
+                "connected" if sheets.is_connected() else "not configured",
+                "connected" if gmail.is_connected() else "not configured")
     yield
     scheduler.shutdown()
     logger.info("Imani is shutting down.")
 
 
-app = FastAPI(title="Imani — Tutu's Operator", lifespan=lifespan)
+app = FastAPI(title="Imani â Tutu's Operator", lifespan=lifespan)
 
 
 # ============================================================
@@ -106,7 +108,7 @@ async def home():
     <!DOCTYPE html>
     <html>
     <head>
-        <title>Imani — Tutu's Operator</title>
+        <title>Imani â Tutu's Operator</title>
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <style>
             * {{ margin: 0; padding: 0; box-sizing: border-box; }}
