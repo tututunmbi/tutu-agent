@@ -283,6 +283,78 @@ class GmailManager:
             logger.error("Gmail draft_email error: %s", e)
             return {"success": False, "error": str(e)}
 
+    def mark_as_read(self, email_id: str) -> dict:
+        """Mark an email as read (remove UNREAD label).
+
+        Args:
+            email_id: The email ID to mark as read
+
+        Returns:
+            Dict with success status.
+        """
+        if not self.service:
+            return {"success": False, "error": "Gmail not connected."}
+
+        try:
+            self.service.users().messages().modify(
+                userId="me",
+                id=email_id,
+                body={"removeLabelIds": ["UNREAD"]}
+            ).execute()
+            return {"success": True, "message": f"Email {email_id} marked as read."}
+        except Exception as e:
+            logger.error("Gmail mark_as_read error: %s", e)
+            return {"success": False, "error": str(e)}
+
+    def mark_as_read_batch(self, email_ids: list) -> dict:
+        """Mark multiple emails as read.
+
+        Args:
+            email_ids: List of email IDs to mark as read
+
+        Returns:
+            Dict with success count.
+        """
+        if not self.service:
+            return {"success": False, "error": "Gmail not connected."}
+
+        try:
+            if email_ids:
+                self.service.users().messages().batchModify(
+                    userId="me",
+                    body={
+                        "ids": email_ids,
+                        "removeLabelIds": ["UNREAD"]
+                    }
+                ).execute()
+            return {"success": True, "count": len(email_ids), "message": f"{len(email_ids)} emails marked as read."}
+        except Exception as e:
+            logger.error("Gmail mark_as_read_batch error: %s", e)
+            return {"success": False, "error": str(e)}
+
+    def add_star(self, email_id: str) -> dict:
+        """Star an email (flag as important).
+
+        Args:
+            email_id: The email ID to star
+
+        Returns:
+            Dict with success status.
+        """
+        if not self.service:
+            return {"success": False, "error": "Gmail not connected."}
+
+        try:
+            self.service.users().messages().modify(
+                userId="me",
+                id=email_id,
+                body={"addLabelIds": ["STARRED"]}
+            ).execute()
+            return {"success": True, "message": f"Email {email_id} starred."}
+        except Exception as e:
+            logger.error("Gmail add_star error: %s", e)
+            return {"success": False, "error": str(e)}
+
     def search_emails(self, query: str, max_results: int = 10) -> dict:
         """Search emails with Gmail query syntax.
 
