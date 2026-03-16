@@ -44,6 +44,7 @@ YOU HAVE TOOLS. You are not just an advisor who talks. You can take real actions
 - Manage Tutu's Google Calendar (read events, create events, find free time, delete events)
 - Read and write to Tutu's Google Sheets (engagement tracker, content calendar)
 - Send WhatsApp messages proactively
+- Read, search, draft, and send emails from Tutu's Gmail
 - Save insights and decisions to memory
 - Search the web for information
 
@@ -406,16 +407,129 @@ TOOLS = [
             "required": ["date", "plan_text"]
         }
     },
+    {
+        "name": "get_recent_emails",
+        "description": "Get recent emails from Tutu's inbox. Use when she asks about emails, wants to check what came in, or needs to find a specific email. Supports Gmail search queries.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "max_results": {
+                    "type": "integer",
+                    "description": "Number of emails to return (default 10, max 20)",
+                    "default": 10
+                },
+                "query": {
+                    "type": "string",
+                    "description": "Gmail search query. Examples: 'is:unread', 'from:ejiro@ginger.com', 'subject:TDPF after:2026/03/01', 'has:attachment'. Leave empty for recent inbox.",
+                    "default": ""
+                }
+            },
+            "required": []
+        }
+    },
+    {
+        "name": "read_email",
+        "description": "Read the full content of a specific email. Use get_recent_emails first to find the email ID, then read it for full details.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "email_id": {
+                    "type": "string",
+                    "description": "The email ID (from get_recent_emails results)"
+                }
+            },
+            "required": ["email_id"]
+        }
+    },
+    {
+        "name": "send_email",
+        "description": "Send an email from Tutu's account. Use when she asks you to email someone, reply to an email, or send a follow-up. Always confirm with Tutu before sending.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "to": {
+                    "type": "string",
+                    "description": "Recipient email address"
+                },
+                "subject": {
+                    "type": "string",
+                    "description": "Email subject line"
+                },
+                "body": {
+                    "type": "string",
+                    "description": "Email body text. Write in Tutu's voice: direct, warm, professional. No corporate fluff."
+                },
+                "cc": {
+                    "type": "string",
+                    "description": "Optional CC recipients (comma-separated)",
+                    "default": ""
+                },
+                "reply_to_id": {
+                    "type": "string",
+                    "description": "Optional: email ID to reply to (keeps it in the same thread)",
+                    "default": ""
+                }
+            },
+            "required": ["to", "subject", "body"]
+        }
+    },
+    {
+        "name": "draft_email",
+        "description": "Create a draft email for Tutu to review before sending. Use this when the email is important or Tutu wants to review it first. The draft will appear in her Gmail Drafts.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "to": {
+                    "type": "string",
+                    "description": "Recipient email address"
+                },
+                "subject": {
+                    "type": "string",
+                    "description": "Email subject line"
+                },
+                "body": {
+                    "type": "string",
+                    "description": "Email body text. Write in Tutu's voice."
+                },
+                "cc": {
+                    "type": "string",
+                    "description": "Optional CC recipients",
+                    "default": ""
+                }
+            },
+            "required": ["to", "subject", "body"]
+        }
+    },
+    {
+        "name": "search_emails",
+        "description": "Search Tutu's email with Gmail query syntax. Use when she needs to find specific emails, check correspondence with someone, or look up old threads.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "query": {
+                    "type": "string",
+                    "description": "Gmail search query. Examples: 'from:kate@pr.com subject:koyo', 'to:nnenna after:2026/03/01', 'is:starred', 'filename:pdf'"
+                },
+                "max_results": {
+                    "type": "integer",
+                    "description": "Number of results (default 10, max 20)",
+                    "default": 10
+                }
+            },
+            "required": ["query"]
+        }
+    },
 ]
 
 
 class TutuAdvisor:
-    def __init__(self, memory=None, sheets=None, calendar=None):
+    def __init__(self, memory=None, sheets=None, calendar=None, gmail=None):
         self.client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
         self.system_prompt = build_system_prompt()
         self.memory = memory
         self.sheets = sheets
         self.calendar = calendar
+        self.gmail = gmail
 
     def _execute_tool(self, tool_name: str, tool_input: dict) -> str:
         """Execute a tool call and return the result as a string."""
@@ -542,6 +656,54 @@ class TutuAdvisor:
                     )
                     return json.dumps({"success": True, "message": f"Day plan updated for {tool_input['date']}."})
                 return json.dumps({"success": False, "error": "Memory not initialized."})
+
+            # Gmail tools
+            elif tool_name == "get_recent_emails":
+                if not self.gmail or not self.gmail.is_connected():
+                    return json.dumps({"success": False, "error": "Gmail not connected. GOOGLE_CREDENTIALS, TUTU_EMAIL need to be set, and Gmail API + domain delegation must be enabled on Google Cloud."})
+                result = self.gmail.get_recent_emails(
+                    max_results=tool_input.get("max_results", 10),
+                    query=tool_input.get("query") or None
+                )
+                return json.dumps(result)
+
+            elif tool_name == "read_email":
+                if not self.gmail or not self.gmail.is_connected():
+                    return json.dumps({"success": False, "error": "Gmail not connected."})
+                result = self.gmail.read_email(tool_input["email_id"])
+                return json.dumps(result)
+
+            elif tool_name == "send_email":
+                if not self.gmail or not self.gmail.is_connected():
+                    return json.dumps({"success": False, "error": "Gmail not connected."})
+                result = self.gmail.send_email(
+                    to=tool_input["to"],
+                    subject=tool_input["subject"],
+                    body=tool_input["body"],
+                    cc=tool_input.get("cc", ""),
+                    reply_to_id=tool_input.get("reply_to_id") or None
+                )
+                return json.dumps(result)
+
+            elif tool_name == "draft_email":
+                if not self.gmail or not self.gmail.is_connected():
+                    return json.dumps({"success": False, "error": "Gmail not connected."})
+                result = self.gmail.draft_email(
+                    to=tool_input["to"],
+                    subject=tool_input["subject"],
+                    body=tool_input["body"],
+                    cc=tool_input.get("cc", "")
+                )
+                return json.dumps(result)
+
+            elif tool_name == "search_emails":
+                if not self.gmail or not self.gmail.is_connected():
+                    return json.dumps({"success": False, "error": "Gmail not connected."})
+                result = self.gmail.search_emails(
+                    query=tool_input["query"],
+                    max_results=tool_input.get("max_results", 10)
+                )
+                return json.dumps(result)
 
             else:
                 return json.dumps({"success": False, "error": f"Unknown tool: {tool_name}"})
