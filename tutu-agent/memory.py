@@ -1,5 +1,5 @@
 """
-Persistent memory â stores conversations, decisions, insights.
+Persistent memory — stores conversations, decisions, insights.
 Uses SQLite so it works on Railway with persistent storage.
 """
 import os
@@ -60,6 +60,19 @@ class ConversationMemory:
                 status TEXT DEFAULT 'active',
                 created_at TEXT NOT NULL,
                 updated_at TEXT NOT NULL
+            )
+        """)
+
+        c.execute("""
+            CREATE TABLE IF NOT EXISTS instincts (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                timestamp TEXT NOT NULL,
+                pattern TEXT NOT NULL,
+                category TEXT NOT NULL,
+                confidence REAL DEFAULT 0.5,
+                observations INTEGER DEFAULT 1,
+                last_seen TEXT NOT NULL,
+                evidence TEXT DEFAULT '[]'
             )
         """)
 
@@ -222,3 +235,149 @@ class ConversationMemory:
             # No existing plan, create one
             return self.save_day_plan(date, plan_text)
         return True
+
+    # === INSTINCT METHODS (Learning System) ===
+
+    def save_instinct(self, pattern: str, category: str, evidence: str = "") -> bool:
+        """
+        Save a new instinct or reinforce an existing one.
+        If a similar pattern exists, increases confidence and observations.
+        """
+        conn = sqlite3.connect(self.db_path)
+        c = conn.cursor()
+        now = datetime.now().isoformat()
+
+        # Check if similar instinct already exists (same category and similar pattern)
+        c.execute(
+            "SELECT id, confidence, observations, evidence FROM instincts WHERE category = ? ORDER BY id DESC LIMIT 5",
+            (category,)
+        )
+        existing = c.fetchall()
+
+        # Simple similarity check: if pattern length and first 20 chars match, it's the same instinct
+        existing_id = None
+        for row in existing:
+            existing_pattern = row[1]  # This would be from a pattern field, but we need to check by fetching differently
+            # Let's just check if we have an exact or very similar pattern
+            c.execute(
+                "SELECT id, confidence, observations FROM instincts WHERE category = ? AND pattern = ?",
+                (category, pattern)
+            )
+            match = c.fetchone()
+            if match:
+                existing_id = match[0]
+                break
+
+        if existing_id:
+            # Reinforce existing instinct
+            c.execute(
+                "SELECT confidence, observations, evidence FROM instincts WHERE id = ?",
+                (existing_id,)
+            )
+            row = c.fetchone()
+            old_confidence, old_observations, old_evidence = row
+            # Increase confidence (cap at 0.95)
+            new_confidence = min(old_confidence + 0.1, 0.95)
+            new_observations = old_observations + 1
+            # Append new evidence
+            try:
+                evidence_list = json.loads(old_evidence) if old_evidence and old_evidence != "[]" else []
+            except:
+                evidence_list = []
+            if evidence and evidence not in evidence_list:
+                evidence_list.append(evidence)
+            new_evidence = json.dumps(evidence_list[-5:])  # Keep last 5 pieces of evidence
+
+            c.execute(
+                "UPDATE instincts SET confidence = ?, observations = ?, last_seen = ?, evidence = ? WHERE id = ?",
+                (new_confidence, new_observations, now, new_evidence, existing_id)
+            )
+        else:
+            # New instinct
+            evidence_list = [evidence] if evidence else []
+            c.execute(
+                "INSERT INTO instincts (timestamp, pattern, category, confidence, observations, last_seen, evidence) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                (now, pattern, category, 0.5, 1, now, json.dumps(evidence_list))
+            )
+
+        conn.commit()
+        conn.close()
+        return True
+
+    def get_instincts(self, category: str = None, min_confidence: float = 0.3, limit: int = 10) -> list:
+        """Get instincts filtered by category and confidence level, sorted by confidence."""
+        conn = sqlite3.connect(self.db_path)
+        c = conn.cursor()
+        if category:
+            c.execute(
+                "SELECT id, pattern, category, confidence, observations, last_seen, evidence FROM instincts WHERE category = ? AND confidence >= ? ORDER BY confidence DESC LIMIT ?",
+                (category, min_confidence, limit)
+            )
+        else:
+            c.execute(
+                "SELECT id, pattern, category, confidence, observations, last_seen, evidence FROM instincts WHERE confidence >= ? ORDER BY confidence DESC LIMIT ?",
+                (min_confidence, limit)
+            )
+        rows = c.fetchall()
+        conn.close()
+        return [
+            {
+                "id": r[0],
+                "pattern": r[1],
+                "category": r[2],
+                "confidence": r[3],
+                "observations": r[4],
+                "last_seen": r[5],
+                "evidence": json.loads(r[6]) if r[6] else []
+            }
+            for r in rows
+        ]
+
+    def reinforce_instinct(self, instinct_id: int) -> bool:
+        """Bump confidence and observation count for an instinct."""
+        conn = sqlite3.connect(self.db_path)
+        c = conn.cursor()
+        now = datetime.now().isoformat()
+        c.execute(
+            "SELECT confidence, observations FROM instincts WHERE id = ?",
+            (instinct_id,)
+        )
+        row = c.fetchone()
+        if not row:
+            conn.close()
+            return False
+
+        old_confidence, old_observations = row
+        new_confidence = min(old_confidence + 0.05, 0.95)
+        new_observations = old_observations + 1
+
+        c.execute(
+            "UPDATE instincts SET confidence = ?, observations = ?, last_seen = ? WHERE id = ?",
+            (new_confidence, new_observations, now, instinct_id)
+        )
+        conn.commit()
+        conn.close()
+        return True
+
+    def get_top_instincts(self, limit: int = 8) -> list:
+        """Get the highest-confidence instincts across all categories."""
+        conn = sqlite3.connect(self.db_path)
+        c = conn.cursor()
+        c.execute(
+            "SELECT id, pattern, category, confidence, observations, last_seen, evidence FROM instincts ORDER BY confidence DESC LIMIT ?",
+            (limit,)
+        )
+        rows = c.fetchall()
+        conn.close()
+        return [
+            {
+                "id": r[0],
+                "pattern": r[1],
+                "category": r[2],
+                "confidence": r[3],
+                "observations": r[4],
+                "last_seen": r[5],
+                "evidence": json.loads(r[6]) if r[6] else []
+            }
+            for r in rows
+        ]
