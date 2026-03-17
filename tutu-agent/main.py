@@ -181,11 +181,33 @@ async def home():
                     addMsg('Connection error. Try again.', 'advisor');
                 }}
             }}
-            addMsg("Hey Tutu. It's Imani. What are we working on today?", 'advisor');
+            async function loadHistory() {{
+                try {{
+                    const res = await fetch('/messages?limit=50');
+                    const data = await res.json();
+                    if (data.messages && data.messages.length > 0) {{
+                        data.messages.forEach(m => {{
+                            addMsg(m.content, m.role === 'user' ? 'user' : 'advisor');
+                        }});
+                    }} else {{
+                        addMsg("Hey Tutu. It's Imani. What are we working on today?", 'advisor');
+                    }}
+                }} catch(e) {{
+                    addMsg("Hey Tutu. It's Imani. What are we working on today?", 'advisor');
+                }}
+            }}
+            loadHistory();
         </script>
     </body>
     </html>
     """
+
+
+@app.get("/messages")
+async def get_messages(limit: int = 50):
+    """Return recent conversation history for the web UI."""
+    messages = memory.get_recent_messages(limit=limit)
+    return {"messages": messages}
 
 
 @app.post("/chat")
