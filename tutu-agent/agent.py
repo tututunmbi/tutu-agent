@@ -1,5 +1,5 @@
 """
-Imani â The brain with hands.
+Imani — The brain with hands.
 Claude API integration with tool use, agentic loop, and full advisor context.
 """
 import os
@@ -25,13 +25,8 @@ def load_reference(filename):
         return f"[Reference file {filename} not found]"
 
 
-def build_system_prompt():
-    """Build the full system prompt from references."""
-    blueprint = load_reference("blueprint.md")
-    leila_lens = load_reference("leila-lens.md")
-    acq_lessons = load_reference("acq-lessons.md")
-    operations = load_reference("operations.md")
-
+def build_core_prompt():
+    """Build the core system prompt (always loaded, never changes per message)."""
     today = datetime.now().strftime("%A, %B %d, %Y")
 
     return f"""You are Imani, Tutu Adetunmbi's strategic AI advisor and personal operator. Your name means "faith" in Swahili, and you were named by Tutu herself. You are the operating system behind her 10-year journey to build the Acquisition.com of the creative economy.
@@ -47,6 +42,7 @@ YOU HAVE TOOLS. You are not just an advisor who talks. You can take real actions
 - Read, search, draft, and send emails from Tutu's Gmail
 - Save insights and decisions to memory
 - Search the web for information
+- Learn and save behavioral patterns about Tutu for long-term advising
 
 When Tutu asks you to DO something (schedule a meeting, check her calendar, log an engagement, remind her about something), USE YOUR TOOLS. Do not say "I can't do that" or "you should do that manually." You are her operator. Act.
 
@@ -58,7 +54,7 @@ Today's date: {today}
 
 ## CRITICAL CONTEXT
 
-Tutu is currently in PHASE 1: THE FOUNDATION (Year 1-2) â "Do the Work"
+Tutu is currently in PHASE 1: THE FOUNDATION (Year 1-2) — "Do the Work"
 
 Her ONLY priorities right now:
 - Serve Stamfordham clients excellently and document the methodology
@@ -76,7 +72,7 @@ If she starts talking about Phase 2, 3, or 4 things (venture building, book laun
 - Location: Lagos, Nigeria
 - Timezone: Africa/Lagos (WAT, UTC+1)
 - Businesses: Stamfordham Global Limited (pivoting to strategic management), CorpCI/C2I (future state)
-- Event: TDPF (The Digital Professional Fair) â October 29, 2026, Lagos
+- Event: TDPF (The Digital Professional Fair) — October 29, 2026, Lagos
 - Side project: MnOb (brand touchpoint ONLY in Phase 1)
 - Team: Jessica (content creator, Delegation Level 1), Blessing + Victor (TDPF deck), Naomi (design), Kitan (videographer)
 - Life coach: Nomshado (meets weekly/biweekly)
@@ -87,7 +83,7 @@ If she starts talking about Phase 2, 3, or 4 things (venture building, book laun
 - Active clients: Ejiro of Ginger, Nnenna of Koyo
 - Sign-off: "Build, or be built upon."
 
-## THE CREED (PRIVATE â NEVER DISPLAY PUBLICLY)
+## THE CREED (PRIVATE — NEVER DISPLAY PUBLICLY)
 Tutu has a private creed that fuels her work. The advisor KNOWS this exists to advise better but NEVER puts it on display or includes it in content.
 
 ## Response Style and Voice Rules
@@ -124,38 +120,158 @@ If multiple tools are needed, chain them. For example, if Tutu says "Prepare me 
 ## MEMORY CONTEXT
 You have access to conversation history. Use it. Reference past conversations, decisions, and commitments.
 
-## ACTIVE DAY PLAN â CRITICAL RULES
+## ACTIVE DAY PLAN — CRITICAL RULES
 You have a persistent day plan system. When you create a schedule or day plan for Tutu, you MUST save it using the save_day_plan tool. This plan will be pinned into your memory on EVERY subsequent message, so you will never lose track of it.
 
 **RULES YOU MUST FOLLOW:**
 1. When you create a day schedule, IMMEDIATELY call save_day_plan to persist it
-2. When Tutu adds new tasks or priorities mid-day, call update_day_plan to recalibrate the schedule (not replace â adjust around existing commitments)
+2. When Tutu adds new tasks or priorities mid-day, call update_day_plan to recalibrate the schedule (not replace — adjust around existing commitments)
 3. BEFORE creating any calendar event or suggesting any time block, CHECK the active day plan first
 4. NEVER contradict the day plan without explicitly acknowledging the conflict and asking Tutu how she wants to adjust
 5. When Tutu asks "what should I do next?" or "what's next?", reference the day plan and the current time
 6. If the day plan needs to change because new priorities came up, show Tutu the FULL updated plan so she can see what moved
 
----
+## INSTINCT SYSTEM
+You have a learning system that tracks Tutu's patterns over time. When you notice recurring behaviors, preferences, decision styles, energy patterns, or communication tendencies, save them using the save_instinct tool.
 
-## REFERENCE: THE BLUEPRINT
-{blueprint}
+Before advising, check your instincts. They represent what you have learned about how Tutu actually operates, not just what the blueprint says she should do.
 
----
-
-## REFERENCE: THE LEILA LENS
-{leila_lens}
-
----
-
-## REFERENCE: ACQUISITION.COM LESSONS
-{acq_lessons}
-
----
-
-## REFERENCE: OPERATIONS (TRACKER, CALENDAR, CHANNELS)
-{operations}
-
+Your current instincts about Tutu:
+{instincts_placeholder}
 """
+
+
+def build_context_for_message(message: str, source: str, memory=None) -> str:
+    """
+    Build context-specific reference material based on message keywords.
+    Returns a formatted string to be injected as ACTIVE CONTEXT in the system prompt.
+    """
+    message_lower = message.lower()
+
+    # Define keyword sets for different context types
+    calendar_keywords = {"schedule", "calendar", "meeting", "tomorrow", "week", "time", "block", "free", "busy", "availability"}
+    content_keywords = {"content", "post", "memo", "video", "episode", "youtube", "substack", "linkedin", "instagram", "reel", "carousel", "twitter", "x", "publish"}
+    client_keywords = {"client", "engagement", "debrief", "constraint", "framework", "ejiro", "nnenna", "koyo", "ginger", "stamfordham", "discovery call", "workshop"}
+    strategy_keywords = {"phase", "blueprint", "roadmap", "hormozi", "acquisition", "foundation", "scale", "business model", "corpci"}
+    emotional_keywords = {"overwhelmed", "stressed", "tired", "behind", "can't", "afraid", "doubt", "growth", "nomshado", "struggling", "anxiety"}
+    email_keywords = {"email", "inbox", "send", "draft", "reply", "gmail"}
+    morning_keywords = {"morning", "good morning", "check-in", "today", "what's next", "next", "today's"}
+
+    # Count matching keywords
+    context_scores = {
+        "calendar": sum(1 for kw in calendar_keywords if kw in message_lower),
+        "content": sum(1 for kw in content_keywords if kw in message_lower),
+        "client": sum(1 for kw in client_keywords if kw in message_lower),
+        "strategy": sum(1 for kw in strategy_keywords if kw in message_lower),
+        "emotional": sum(1 for kw in emotional_keywords if kw in message_lower),
+        "email": sum(1 for kw in email_keywords if kw in message_lower),
+        "morning": sum(1 for kw in morning_keywords if kw in message_lower),
+    }
+
+    # Determine dominant context (top 2 or 3 by score)
+    sorted_contexts = sorted(context_scores.items(), key=lambda x: x[1], reverse=True)
+    dominant = [c for c, score in sorted_contexts if score > 0]
+
+    context_parts = []
+
+    # Load relevant sections based on detected context
+    if "calendar" in dominant or "morning" in dominant:
+        ops = load_reference("operations.md")
+        calendar_section = _extract_section(ops, "30-Day Brand Calendar")
+        if calendar_section:
+            context_parts.append("## BRAND CALENDAR CONTEXT\n" + calendar_section)
+
+    if "content" in dominant:
+        ops = load_reference("operations.md")
+        calendar_section = _extract_section(ops, "30-Day Brand Calendar")
+        blueprint = load_reference("blueprint.md")
+        strategy_section = _extract_section(blueprint, "Channel Strategy")
+        if calendar_section:
+            context_parts.append("## BRAND CALENDAR & CONTENT\n" + calendar_section)
+        if strategy_section:
+            context_parts.append("## CONTENT STRATEGY\n" + strategy_section)
+
+    if "client" in dominant or "strategy" in dominant:
+        ops = load_reference("operations.md")
+        engagement_section = _extract_section(ops, "Engagement Tracker")
+        constraint_section = _extract_section(ops, "Constraint Taxonomy")
+        blueprint = load_reference("blueprint.md")
+        advisory_section = _extract_section(blueprint, "Strategic Management")
+        acq = load_reference("acq-lessons.md")
+        advisory_practice = _extract_section(acq, "Advisory Practice")
+
+        if engagement_section:
+            context_parts.append("## ENGAGEMENT TRACKER\n" + engagement_section)
+        if constraint_section:
+            context_parts.append("## CONSTRAINT TAXONOMY\n" + constraint_section)
+        if advisory_section:
+            context_parts.append("## STRATEGIC MANAGEMENT APPROACH\n" + advisory_section)
+        if advisory_practice:
+            context_parts.append("## ADVISORY PRACTICE LESSONS\n" + advisory_practice)
+
+    if "strategy" in dominant:
+        blueprint = load_reference("blueprint.md")
+        phase_section = _extract_section(blueprint, "PHASE 1")
+        if phase_section:
+            context_parts.append("## PHASE 1 STRATEGY\n" + phase_section)
+
+    if "emotional" in dominant:
+        leila = load_reference("leila-lens.md")
+        emotional_section = _extract_section(leila, "Emotional Regulation")
+        growth_section = _extract_section(leila, "Personal Growth")
+        if emotional_section:
+            context_parts.append("## EMOTIONAL REGULATION (LEILA'S FRAMEWORK)\n" + emotional_section)
+        if growth_section:
+            context_parts.append("## PERSONAL GROWTH FRAMEWORK\n" + growth_section)
+
+    # Load top instincts if memory is available
+    if memory:
+        top_instincts = memory.get_top_instincts(limit=5)
+        if top_instincts:
+            instinct_text = "## LEARNED INSTINCTS ABOUT TUTU\n"
+            for instinct in top_instincts:
+                instinct_text += f"- {instinct['pattern']} (confidence: {instinct['confidence']:.1%})\n"
+            context_parts.append(instinct_text)
+
+    # Default context if nothing matched
+    if not context_parts:
+        ops = load_reference("operations.md")
+        engagement_section = _extract_section(ops, "Engagement Tracker")
+        if engagement_section:
+            context_parts.append("## OPERATIONAL CONTEXT\n" + engagement_section)
+
+    return "\n\n".join(context_parts) if context_parts else "[Standard operational context loaded]"
+
+
+def _extract_section(text: str, section_name: str) -> str:
+    """Extract a specific section from a reference file by heading."""
+    lines = text.split("\n")
+    section_lines = []
+    in_section = False
+    section_heading_level = 0
+
+    for i, line in enumerate(lines):
+        # Check if this is the section we're looking for
+        if section_name.lower() in line.lower() and line.startswith("#"):
+            in_section = True
+            section_heading_level = len(line) - len(line.lstrip("#"))
+            section_lines.append(line)
+            continue
+
+        if in_section:
+            # Stop if we hit a heading at the same or higher level
+            if line.startswith("#"):
+                current_level = len(line) - len(line.lstrip("#"))
+                if current_level <= section_heading_level:
+                    break
+            section_lines.append(line)
+
+    return "\n".join(section_lines).strip() if section_lines else ""
+
+
+def build_system_prompt():
+    """Build the full system prompt from references (deprecated, kept for compatibility)."""
+    return build_core_prompt()
 
 
 # ============================================================
@@ -313,7 +429,7 @@ TOOLS = [
             "type": "object",
             "properties": {
                 "day": {
-                    "type": "integer",
+                 "   "type": "integer",
                     "description": "Day number in the 30-day calendar (1-30)"
                 },
                 "status": {
@@ -519,13 +635,97 @@ TOOLS = [
             "required": ["query"]
         }
     },
+    {
+        "name": "save_instinct",
+        "description": "Save a behavioral pattern or preference you've noticed about Tutu. Use this when you observe recurring behaviors, decision-making patterns, energy rhythms, communication preferences, or creative tendencies. These instincts help you advise Tutu better over time.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "pattern": {
+                    "type": "string",
+                    "description": "The observed pattern (e.g., 'Tutu does her best strategic thinking in morning conversations before 10 AM')"
+                },
+                "category": {
+                    "type": "string",
+                    "enum": ["decision_style", "energy_pattern", "communication_preference", "creative_process", "stress_response", "scheduling_habit", "content_preference"],
+                    "description": "The category of pattern being saved"
+                },
+                "evidence": {
+                    "type": "string",
+                    "description": "Brief evidence from this conversation supporting the pattern",
+                    "default": ""
+                }
+            },
+            "required": ["pattern", "category"]
+        }
+    },
 ]
+
+
+def _detect_and_save_patterns(memory, history, current_message: str, assistant_response: str):
+    """
+    Lightweight pattern detection that runs every 5th message.
+    Looks for scheduling habits, emotional patterns, decision styles, communication patterns.
+    """
+    try:
+        # Analyze scheduling patterns
+        time_mentions = ["morning", "10am", "afternoon", "evening", "9am", "11am", "12pm", "before 10", "after 6"]
+        scheduling_mentions = sum(1 for mention in time_mentions if mention in current_message.lower())
+        if scheduling_mentions > 0:
+            calendar_preference = "Tutu frequently references specific times; prefers blocking time strategically"
+            memory.save_instinct(
+                pattern=calendar_preference,
+                category="scheduling_habit",
+                evidence=f"Mentioned in: {current_message[:100]}"
+            )
+
+        # Analyze emotional patterns
+        overwhelm_words = ["overwhelmed", "too much", "can't", "struggling", "stuck", "exhausted"]
+        if any(word in current_message.lower() for word in overwhelm_words):
+            emotional_pattern = "Tutu gets overwhelmed when multiple priorities compete; responds well to clear prioritization"
+            memory.save_instinct(
+                pattern=emotional_pattern,
+                category="stress_response",
+                evidence="Expressed overwhelm about competing priorities"
+            )
+
+        # Analyze decision patterns
+        if "decision" in current_message.lower() or "should i" in current_message.lower():
+            decision_style = "Tutu asks for structured decision frameworks; prefers options with clear trade-offs"
+            memory.save_instinct(
+                pattern=decision_style,
+                category="decision_style",
+                evidence=f"Asked for decision help: {current_message[:100]}"
+            )
+
+        # Analyze content preferences
+        content_words = ["content", "post", "video", "memo", "substack", "youtube"]
+        if any(word in current_message.lower() for word in content_words):
+            if "publish" in current_message.lower() or "ready" in current_message.lower():
+                content_pref = "Tutu wants content guidance when ready to publish; prefers actionable, not conceptual feedback"
+                memory.save_instinct(
+                    pattern=content_pref,
+                    category="content_preference",
+                    evidence="Discussed content readiness/publishing"
+                )
+
+        # Analyze communication preferences
+        if any(word in assistant_response.lower() for word in ["direct", "clear", "specific"]):
+            comm_pref = "Tutu responds well to direct, clear guidance without over-explanation"
+            memory.save_instinct(
+                pattern=comm_pref,
+                category="communication_preference",
+                evidence="Observed in conversation dynamics"
+            )
+
+    except Exception as e:
+        logger.warning(f"Pattern detection error (non-fatal): {e}")
 
 
 class TutuAdvisor:
     def __init__(self, memory=None, sheets=None, calendar=None, gmail=None):
         self.client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
-        self.system_prompt = build_system_prompt()
+        self.core_prompt = build_core_prompt()
         self.memory = memory
         self.sheets = sheets
         self.calendar = calendar
@@ -705,6 +905,16 @@ class TutuAdvisor:
                 )
                 return json.dumps(result)
 
+            elif tool_name == "save_instinct":
+                if self.memory:
+                    self.memory.save_instinct(
+                        pattern=tool_input["pattern"],
+                        category=tool_input["category"],
+                        evidence=tool_input.get("evidence", "")
+                    )
+                    return json.dumps({"success": True, "message": f"Instinct saved: {tool_input['pattern'][:80]}..."})
+                return json.dumps({"success": False, "error": "Memory not initialized."})
+
             else:
                 return json.dumps({"success": False, "error": f"Unknown tool: {tool_name}"})
 
@@ -720,6 +930,24 @@ class TutuAdvisor:
         if self.memory:
             history = self.memory.get_recent_messages(limit=20)
 
+        # Build context for this specific message (ACTIVE CONTEXT)
+        active_context = build_context_for_message(message, source, self.memory)
+
+        # Build the dynamic system prompt with instincts injected
+        if self.memory:
+            top_instincts = self.memory.get_top_instincts(limit=8)
+            if top_instincts:
+                instincts_text = "Tutu's Observed Patterns:\n"
+                for instinct in top_instincts:
+                    instincts_text += f"- {instinct['pattern']} (confidence: {instinct['confidence']:.0%})\n"
+            else:
+                instincts_text = "[No patterns learned yet — building up observations]"
+        else:
+            instincts_text = "[Memory not initialized]"
+
+        system_prompt = self.core_prompt.replace("{instincts_placeholder}", instincts_text)
+        system_prompt += f"\n\n## ACTIVE CONTEXT\n{active_context}"
+
         # Build messages array
         messages = []
 
@@ -727,7 +955,7 @@ class TutuAdvisor:
         if self.memory:
             day_plan = self.memory.get_day_plan()
             if day_plan:
-                plan_context = f"[ACTIVE DAY PLAN for {day_plan['date']} â last updated {day_plan['updated_at']}]\n{day_plan['plan_text']}\n[END DAY PLAN â Always reference this before scheduling or suggesting next actions]"
+                plan_context = f"[ACTIVE DAY PLAN for {day_plan['date']} — last updated {day_plan['updated_at']}]\n{day_plan['plan_text']}\n[END DAY PLAN — Always reference this before scheduling or suggesting next actions]"
                 messages.append({"role": "user", "content": plan_context})
                 messages.append({"role": "assistant", "content": "I have today's day plan loaded and will reference it for all scheduling decisions."})
 
@@ -746,7 +974,7 @@ class TutuAdvisor:
                     system=[
                         {
                             "type": "text",
-                            "text": self.system_prompt,
+                            "text": system_prompt,
                             "cache_control": {"type": "ephemeral"}
                         }
                     ],
@@ -798,6 +1026,11 @@ class TutuAdvisor:
                         content=message,
                         context=assistant_message[:200]
                     )
+
+                # Every 5th message, detect and save patterns
+                message_count = self.memory.get_message_count()
+                if message_count % 5 == 0:
+                    _detect_and_save_patterns(self.memory, history, message, assistant_message)
 
             return assistant_message
 
