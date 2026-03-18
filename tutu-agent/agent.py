@@ -4,7 +4,7 @@ Claude API integration with tool use, agentic loop, and full advisor context.
 """
 import os
 import json
-import logging
+import loggin
 import anthropic
 from datetime import datetime
 
@@ -137,7 +137,7 @@ You have a learning system that tracks Tutu's patterns over time. When you notic
 Before advising, check your instincts. They represent what you have learned about how Tutu actually operates, not just what the blueprint says she should do.
 
 Your current instincts about Tutu:
-{instincts_placeholder}
+{{instincts_placeholder}}
 """
 
 
