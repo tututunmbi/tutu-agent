@@ -429,7 +429,7 @@ TOOLS = [
             "type": "object",
             "properties": {
                 "day": {
-                 "   "type": "integer",
+                    "type": "integer",
                     "description": "Day number in the 30-day calendar (1-30)"
                 },
                 "status": {
