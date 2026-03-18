@@ -4,7 +4,7 @@ Claude API integration with tool use, agentic loop, and full advisor context.
 """
 import os
 import json
-import loggin
+import logging
 import anthropic
 from datetime import datetime
 
