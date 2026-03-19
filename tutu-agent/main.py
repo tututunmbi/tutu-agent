@@ -1,6 +1,8 @@
 """
-Tutu's Strategic AI Advisor â API Agent
+Tutu's Strategic AI Advisor — API Agent
 Deployed on Railway, connected via WhatsApp (Twilio)
+
+Dashboard V2 — Imani: dark theme, per-platform content pages, analytics
 """
 import os
 import logging
@@ -44,7 +46,1135 @@ async def lifespan(app: FastAPI):
     logger.info("Imani is shutting down.")
 
 
-app = FastAPI(title="Imani â Tutu's Operator", lifespan=lifespan)
+app = FastAPI(title="Imani — Tutu's Operator", lifespan=lifespan)
+
+
+# ============================================================
+# Dashboard V2 HTML (dark theme, per-platform, analytics)
+# ============================================================
+
+DASHBOARD_HTML = r"""<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Imani — Strategic Advisor</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Crimson+Text:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/11.1.1/marked.min.js"></script>
+
+  <style>
+    :root {
+      --bg-deep: #0C0C0F;
+      --bg-base: #111114;
+      --bg-surface: #18181C;
+      --bg-elevated: #1F1F24;
+      --bg-hover: #26262C;
+      --border: #2A2A32;
+      --border-subtle: #1F1F26;
+      --text-primary: #E8E4DF;
+      --text-secondary: #8A8590;
+      --text-muted: #5A5560;
+      --accent: #C75B3A;
+      --accent-hover: #D4673F;
+      --accent-subtle: rgba(199, 91, 58, 0.12);
+      --accent-glow: rgba(199, 91, 58, 0.06);
+      --glass: rgba(199, 91, 58, 0.08);
+      --instagram: #E1306C;
+      --instagram-bg: rgba(225, 48, 108, 0.12);
+      --twitter: #1DA1F2;
+      --twitter-bg: rgba(29, 161, 242, 0.12);
+      --tiktok: #FE2C55;
+      --tiktok-bg: rgba(254, 44, 85, 0.12);
+      --linkedin: #0A66C2;
+      --linkedin-bg: rgba(10, 102, 194, 0.12);
+      --success: #34D399;
+      --warning: #FBBF24;
+      --radius-sm: 8px;
+      --radius-md: 12px;
+      --radius-lg: 16px;
+      --radius-full: 9999px;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { height: 100%; width: 100%; }
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: var(--bg-deep);
+      color: var(--text-primary);
+      line-height: 1.6;
+      overflow: hidden;
+    }
+
+    .app { display: flex; height: 100vh; }
+
+    /* ===== SIDEBAR ===== */
+    .sidebar {
+      width: 260px;
+      background: var(--bg-base);
+      border-right: 1px solid var(--border-subtle);
+      display: flex;
+      flex-direction: column;
+      flex-shrink: 0;
+    }
+
+    .sidebar-brand {
+      padding: 24px 20px 20px;
+      border-bottom: 1px solid var(--border-subtle);
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .imani-avatar {
+      width: 40px; height: 40px;
+      border-radius: 12px;
+      position: relative; overflow: hidden; flex-shrink: 0;
+    }
+    .imani-avatar svg { width: 100%; height: 100%; }
+
+    .brand-text { display: flex; flex-direction: column; gap: 2px; }
+    .brand-name {
+      font-family: 'Crimson Text', Georgia, serif;
+      font-size: 22px; font-weight: 600;
+      color: var(--text-primary);
+      letter-spacing: -0.3px; line-height: 1;
+    }
+    .brand-role {
+      font-size: 11px; font-weight: 500;
+      color: var(--text-muted);
+      text-transform: uppercase; letter-spacing: 0.8px;
+    }
+
+    .sidebar-nav {
+      flex: 1; padding: 12px 0;
+      overflow-y: auto;
+      display: flex; flex-direction: column; gap: 2px;
+    }
+
+    .nav-divider { height: 1px; background: var(--border-subtle); margin: 8px 16px; }
+    .nav-label {
+      font-size: 10px; font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase; letter-spacing: 1px;
+      padding: 12px 20px 6px;
+    }
+
+    .nav-item {
+      margin: 0 8px; padding: 10px 12px;
+      cursor: pointer; color: var(--text-secondary);
+      font-size: 13px; font-weight: 500;
+      display: flex; align-items: center; gap: 12px;
+      border-radius: var(--radius-sm);
+      transition: all 0.15s ease; user-select: none;
+    }
+    .nav-item:hover { color: var(--text-primary); background: var(--bg-hover); }
+    .nav-item.active { color: var(--accent); background: var(--accent-subtle); }
+
+    .nav-icon {
+      width: 20px; height: 20px;
+      display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+    }
+    .nav-icon svg {
+      width: 18px; height: 18px;
+      stroke: currentColor; fill: none;
+      stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round;
+    }
+
+    .platform-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+
+    .sidebar-footer {
+      padding: 16px 20px;
+      border-top: 1px solid var(--border-subtle);
+      display: flex; align-items: center; gap: 12px;
+    }
+
+    .tools-status {
+      display: flex; gap: 6px; flex-wrap: wrap;
+      padding: 0 20px 12px;
+    }
+    .tool-dot {
+      font-size: 10px; padding: 2px 8px;
+      border-radius: var(--radius-full);
+      font-weight: 500;
+    }
+    .tool-dot.on { background: rgba(52,211,153,0.12); color: var(--success); border: 1px solid rgba(52,211,153,0.3); }
+    .tool-dot.off { background: var(--bg-elevated); color: var(--text-muted); border: 1px solid var(--border); }
+
+    .user-avatar {
+      width: 32px; height: 32px; border-radius: 50%;
+      background: var(--bg-elevated);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 13px; font-weight: 600;
+      color: var(--text-secondary); flex-shrink: 0;
+    }
+    .user-info { display: flex; flex-direction: column; gap: 1px; flex: 1; min-width: 0; }
+    .user-name { font-size: 13px; font-weight: 600; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .user-role-text { font-size: 11px; color: var(--text-muted); }
+
+    /* ===== MAIN AREA ===== */
+    .main { flex: 1; display: flex; flex-direction: column; overflow: hidden; background: var(--bg-deep); }
+    .panel { display: none; flex: 1; flex-direction: column; overflow: hidden; }
+    .panel.active { display: flex; }
+
+    /* ===== SHARED PAGE HEADER ===== */
+    .page-header {
+      padding: 28px 40px 20px;
+      border-bottom: 1px solid var(--border-subtle);
+      background: var(--bg-base);
+    }
+    .page-header-row { display: flex; justify-content: space-between; align-items: center; }
+    .page-title {
+      font-family: 'Crimson Text', Georgia, serif;
+      font-size: 28px; font-weight: 600; color: var(--text-primary);
+    }
+    .page-subtitle { font-size: 13px; color: var(--text-secondary); margin-top: 4px; }
+
+    .btn {
+      padding: 9px 18px; border-radius: var(--radius-full);
+      font-size: 13px; font-weight: 600;
+      cursor: pointer; transition: all 0.15s ease;
+      display: inline-flex; align-items: center; gap: 8px; border: none;
+    }
+    .btn-accent { background: var(--accent); color: #fff; }
+    .btn-accent:hover { background: var(--accent-hover); }
+    .btn-ghost { background: var(--bg-elevated); color: var(--text-secondary); border: 1px solid var(--border); }
+    .btn-ghost:hover { background: var(--bg-hover); color: var(--text-primary); }
+
+    /* ===== CHAT PAGE ===== */
+    .chat-page { display: flex; flex-direction: column; flex: 1; overflow: hidden; }
+    .chat-messages {
+      flex: 1; overflow-y: auto; padding: 32px 40px;
+      display: flex; flex-direction: column; gap: 20px; scroll-behavior: smooth;
+    }
+    .chat-empty {
+      flex: 1; display: flex; flex-direction: column;
+      align-items: center; justify-content: center; gap: 16px;
+    }
+    .chat-empty-avatar { margin-bottom: 8px; }
+    .chat-greeting {
+      font-family: 'Crimson Text', Georgia, serif;
+      font-size: 42px; font-weight: 600;
+      color: var(--text-primary); text-align: center; line-height: 1.15;
+    }
+    .chat-greeting-accent { color: var(--accent); }
+    .chat-hint { font-size: 14px; color: var(--text-muted); text-align: center; max-width: 400px; }
+
+    .msg { display: flex; gap: 12px; align-items: flex-start; }
+    .msg-user { justify-content: flex-end; }
+    .msg-avatar {
+      width: 28px; height: 28px; border-radius: 8px; overflow: hidden;
+      flex-shrink: 0; display: flex; align-items: center; justify-content: center;
+      background: var(--bg-elevated);
+    }
+    .msg-avatar svg { width: 100%; height: 100%; }
+    .msg-bubble { max-width: 560px; word-wrap: break-word; }
+    .msg-user .msg-bubble {
+      background: var(--accent-subtle); border: 1px solid rgba(199,91,58,0.2);
+      color: var(--text-primary); padding: 12px 16px;
+      border-radius: 18px 18px 4px 18px; font-size: 14px; line-height: 1.5;
+    }
+    .msg-ai .msg-bubble { color: var(--text-primary); font-size: 14px; line-height: 1.65; }
+    .msg-ai .msg-bubble p { margin-bottom: 8px; }
+    .msg-ai .msg-bubble p:last-child { margin-bottom: 0; }
+    .msg-ai .msg-bubble strong { color: var(--accent); font-weight: 600; }
+    .msg-ai .msg-bubble ul, .msg-ai .msg-bubble ol { margin: 8px 0; padding-left: 20px; }
+    .msg-ai .msg-bubble li { margin-bottom: 4px; }
+
+    .typing-indicator {
+      display: flex; gap: 12px; align-items: flex-start;
+    }
+    .typing-dots {
+      display: flex; gap: 4px; padding: 14px 16px;
+      background: var(--bg-surface); border-radius: 18px;
+    }
+    .typing-dots span {
+      width: 6px; height: 6px; background: var(--accent);
+      border-radius: 50%; opacity: 0.3;
+      animation: typePulse 1.2s infinite;
+    }
+    .typing-dots span:nth-child(2) { animation-delay: 0.2s; }
+    .typing-dots span:nth-child(3) { animation-delay: 0.4s; }
+    @keyframes typePulse { 0%,100% { opacity: 0.3; } 50% { opacity: 1; } }
+
+    .chat-input-bar {
+      padding: 20px 40px 28px; display: flex; justify-content: center;
+      background: linear-gradient(to top, var(--bg-deep) 60%, transparent);
+    }
+    .chat-input-wrap { width: 100%; max-width: 640px; display: flex; gap: 10px; align-items: flex-end; }
+    .chat-input {
+      flex: 1; padding: 14px 18px;
+      background: var(--bg-surface); border: 1px solid var(--border);
+      border-radius: 24px; font-family: 'Inter', sans-serif;
+      font-size: 14px; color: var(--text-primary);
+      outline: none; resize: none; min-height: 48px; max-height: 120px;
+      transition: border-color 0.2s;
+    }
+    .chat-input::placeholder { color: var(--text-muted); }
+    .chat-input:focus { border-color: var(--accent); }
+    .chat-send {
+      width: 48px; height: 48px; background: var(--accent);
+      border: none; border-radius: 50%; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0; transition: background 0.15s;
+    }
+    .chat-send:hover { background: var(--accent-hover); }
+    .chat-send svg { width: 20px; height: 20px; stroke: #fff; fill: none; stroke-width: 2; }
+
+    /* ===== PLATFORM PAGES ===== */
+    .platform-page { display: flex; flex-direction: column; flex: 1; overflow: hidden; }
+    .platform-body { flex: 1; overflow-y: auto; padding: 24px 40px 40px; }
+    .platform-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 28px; }
+    .mini-stat {
+      background: var(--bg-surface); border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md); padding: 16px 18px;
+    }
+    .mini-stat-label { font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
+    .mini-stat-value { font-size: 22px; font-weight: 700; }
+    .mini-stat-change { font-size: 11px; color: var(--text-muted); margin-top: 4px; }
+    .mini-stat-change.up { color: var(--success); }
+
+    .content-section-title { font-size: 14px; font-weight: 600; color: var(--text-primary); margin-bottom: 14px; }
+    .content-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 32px; }
+    .content-row {
+      background: var(--bg-surface); border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md); padding: 16px 20px;
+      display: flex; align-items: center; gap: 16px;
+      transition: border-color 0.15s; cursor: default;
+    }
+    .content-row:hover { border-color: var(--border); }
+    .content-status { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+    .status-scheduled { background: var(--warning); }
+    .status-published { background: var(--success); }
+    .status-draft { background: var(--text-muted); }
+    .content-info { flex: 1; min-width: 0; }
+    .content-title { font-size: 14px; font-weight: 600; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .content-meta { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+    .content-engagement { text-align: right; min-width: 80px; }
+    .content-eng-value { font-size: 14px; font-weight: 600; color: var(--text-primary); }
+    .content-eng-label { font-size: 11px; color: var(--text-muted); }
+    .content-actions { display: flex; gap: 6px; }
+    .content-action-btn {
+      width: 32px; height: 32px; border-radius: 8px; border: none;
+      background: var(--bg-elevated); color: var(--text-muted);
+      cursor: pointer; display: flex; align-items: center; justify-content: center;
+      transition: all 0.15s;
+    }
+    .content-action-btn:hover { background: var(--bg-hover); color: var(--text-primary); }
+    .content-action-btn svg { width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 2; }
+
+    /* ===== ANALYTICS PAGE ===== */
+    .analytics-page { display: flex; flex-direction: column; flex: 1; overflow: hidden; }
+    .analytics-body { flex: 1; overflow-y: auto; padding: 24px 40px 40px; }
+    .analytics-tabs { display: flex; gap: 4px; margin-bottom: 28px; }
+    .analytics-tab {
+      padding: 8px 16px; border-radius: var(--radius-full);
+      font-size: 13px; font-weight: 500;
+      color: var(--text-secondary); background: transparent; border: none;
+      cursor: pointer; transition: all 0.15s;
+    }
+    .analytics-tab:hover { background: var(--bg-hover); color: var(--text-primary); }
+    .analytics-tab.active { background: var(--accent-subtle); color: var(--accent); }
+
+    .analytics-overview { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 28px; }
+    .stat-card {
+      background: var(--bg-surface); border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md); padding: 20px;
+    }
+    .stat-label { font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; }
+    .stat-value { font-size: 28px; font-weight: 700; color: var(--accent); }
+    .stat-change { font-size: 12px; color: var(--text-muted); margin-top: 6px; }
+    .stat-change.up { color: var(--success); }
+
+    .chart-card {
+      background: var(--bg-surface); border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md); padding: 24px; margin-bottom: 16px;
+    }
+    .chart-card-title { font-size: 14px; font-weight: 600; color: var(--text-primary); margin-bottom: 16px; }
+    .chart-area { position: relative; height: 280px; }
+    .charts-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+
+    /* ===== AGENTS PAGE ===== */
+    .agents-page { display: flex; flex-direction: column; flex: 1; overflow: hidden; }
+    .agents-body { flex: 1; overflow-y: auto; padding: 24px 40px 40px; }
+    .agents-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
+    .agent-card {
+      background: var(--bg-surface); border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md); padding: 24px;
+      display: flex; flex-direction: column; gap: 12px; transition: all 0.15s;
+    }
+    .agent-card:hover { border-color: var(--border); }
+    .agent-card-head { display: flex; align-items: center; gap: 14px; }
+    .agent-icon {
+      width: 40px; height: 40px; border-radius: 10px;
+      display: flex; align-items: center; justify-content: center; font-size: 18px;
+    }
+    .agent-name { font-size: 15px; font-weight: 600; color: var(--text-primary); }
+    .agent-desc { font-size: 13px; color: var(--text-secondary); line-height: 1.5; }
+    .agent-badge {
+      display: inline-flex; padding: 4px 10px;
+      background: var(--bg-elevated); color: var(--text-muted);
+      border-radius: var(--radius-full); font-size: 11px; font-weight: 600;
+      text-transform: uppercase; letter-spacing: 0.3px; align-self: flex-start;
+    }
+
+    /* ===== MODAL ===== */
+    .modal-overlay {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,0.5); backdrop-filter: blur(4px);
+      z-index: 500; align-items: center; justify-content: center;
+    }
+    .modal-overlay.active { display: flex; }
+    .modal-box {
+      background: var(--bg-surface); border: 1px solid var(--border);
+      border-radius: var(--radius-lg); padding: 28px;
+      width: 440px; max-width: 90vw;
+      box-shadow: 0 24px 80px rgba(0,0,0,0.4);
+    }
+    .modal-title {
+      font-family: 'Crimson Text', Georgia, serif;
+      font-size: 22px; font-weight: 600;
+      color: var(--text-primary); margin-bottom: 20px;
+    }
+    .field { margin-bottom: 14px; display: flex; flex-direction: column; gap: 5px; }
+    .field-label { font-size: 12px; font-weight: 600; color: var(--text-secondary); }
+    .field-input {
+      padding: 10px 12px; background: var(--bg-elevated);
+      border: 1px solid var(--border); border-radius: var(--radius-sm);
+      font-family: 'Inter', sans-serif; font-size: 14px; color: var(--text-primary);
+      outline: none; transition: border-color 0.15s;
+    }
+    .field-input:focus { border-color: var(--accent); }
+    .field-input::placeholder { color: var(--text-muted); }
+    .modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px; }
+
+    /* ===== SCROLLBAR ===== */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+
+    /* ===== RESPONSIVE ===== */
+    @media (max-width: 900px) {
+      .sidebar { width: 220px; }
+      .platform-stats, .analytics-overview { grid-template-columns: repeat(2, 1fr); }
+      .charts-row { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 640px) {
+      .sidebar { position: absolute; left: 0; top: 0; height: 100%; z-index: 200; box-shadow: 0 0 40px rgba(0,0,0,0.5); }
+      .chat-messages, .chat-input-bar, .platform-body, .analytics-body, .agents-body { padding-left: 20px; padding-right: 20px; }
+      .platform-stats, .analytics-overview { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+
+    <!-- ===== SIDEBAR ===== -->
+    <div class="sidebar">
+      <div class="sidebar-brand">
+        <div class="imani-avatar">
+          <svg viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <linearGradient id="glass-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" style="stop-color:#C75B3A;stop-opacity:0.6"/>
+                <stop offset="50%" style="stop-color:#E88A6D;stop-opacity:0.3"/>
+                <stop offset="100%" style="stop-color:#C75B3A;stop-opacity:0.5"/>
+              </linearGradient>
+              <radialGradient id="face-glow" cx="50%" cy="40%" r="50%">
+                <stop offset="0%" style="stop-color:#E88A6D;stop-opacity:0.4"/>
+                <stop offset="100%" style="stop-color:#C75B3A;stop-opacity:0.1"/>
+              </radialGradient>
+            </defs>
+            <rect width="40" height="40" rx="12" fill="#1F1F24"/>
+            <rect width="40" height="40" rx="12" fill="url(#glass-grad)" opacity="0.5"/>
+            <circle cx="20" cy="16" r="8" fill="url(#face-glow)" stroke="#C75B3A" stroke-width="0.5" opacity="0.8"/>
+            <ellipse cx="16.5" cy="14.5" rx="1.5" ry="1.8" fill="#C75B3A" opacity="0.7"/>
+            <ellipse cx="23.5" cy="14.5" rx="1.5" ry="1.8" fill="#C75B3A" opacity="0.7"/>
+            <path d="M17 19 Q20 21.5 23 19" stroke="#C75B3A" stroke-width="0.8" fill="none" opacity="0.5" stroke-linecap="round"/>
+            <path d="M13 28 Q20 34 27 28" fill="#C75B3A" opacity="0.15"/>
+            <line x1="20" y1="24" x2="20" y2="28" stroke="#C75B3A" stroke-width="0.5" opacity="0.3"/>
+            <rect x="2" y="2" width="36" height="36" rx="11" fill="none" stroke="#C75B3A" stroke-width="0.3" opacity="0.3"/>
+          </svg>
+        </div>
+        <div class="brand-text">
+          <div class="brand-name">Imani</div>
+          <div class="brand-role">Strategic Advisor</div>
+        </div>
+      </div>
+
+      <nav class="sidebar-nav">
+        <div class="nav-item active" data-panel="chat">
+          <div class="nav-icon"><svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div>
+          <span>Chat</span>
+        </div>
+
+        <div class="nav-divider"></div>
+        <div class="nav-label">Platforms</div>
+
+        <div class="nav-item" data-panel="instagram">
+          <div class="platform-dot" style="background:var(--instagram)"></div>
+          <span>Instagram</span>
+        </div>
+        <div class="nav-item" data-panel="twitter">
+          <div class="platform-dot" style="background:var(--twitter)"></div>
+          <span>Twitter / X</span>
+        </div>
+        <div class="nav-item" data-panel="tiktok">
+          <div class="platform-dot" style="background:var(--tiktok)"></div>
+          <span>TikTok</span>
+        </div>
+        <div class="nav-item" data-panel="linkedin">
+          <div class="platform-dot" style="background:var(--linkedin)"></div>
+          <span>LinkedIn</span>
+        </div>
+
+        <div class="nav-divider"></div>
+
+        <div class="nav-item" data-panel="analytics">
+          <div class="nav-icon"><svg viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></div>
+          <span>Analytics</span>
+        </div>
+        <div class="nav-item" data-panel="agents">
+          <div class="nav-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/></svg></div>
+          <span>Sub-Agents</span>
+        </div>
+      </nav>
+
+      <div id="tools-status" class="tools-status"></div>
+
+      <div class="sidebar-footer">
+        <div class="user-avatar">T</div>
+        <div class="user-info">
+          <div class="user-name">Tutu Adetunmbi</div>
+          <div class="user-role-text">Operator</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== MAIN CONTENT ===== -->
+    <div class="main">
+
+      <!-- CHAT -->
+      <div class="panel active" id="panel-chat">
+        <div class="chat-page">
+          <div class="chat-messages" id="chat-messages">
+            <div class="chat-empty" id="chat-empty">
+              <div class="chat-empty-avatar">
+                <svg width="64" height="64" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">
+                  <rect width="40" height="40" rx="12" fill="#1F1F24"/>
+                  <rect width="40" height="40" rx="12" fill="url(#glass-grad)" opacity="0.5"/>
+                  <circle cx="20" cy="16" r="8" fill="url(#face-glow)" stroke="#C75B3A" stroke-width="0.5" opacity="0.8"/>
+                  <ellipse cx="16.5" cy="14.5" rx="1.5" ry="1.8" fill="#C75B3A" opacity="0.7"/>
+                  <ellipse cx="23.5" cy="14.5" rx="1.5" ry="1.8" fill="#C75B3A" opacity="0.7"/>
+                  <path d="M17 19 Q20 21.5 23 19" stroke="#C75B3A" stroke-width="0.8" fill="none" opacity="0.5" stroke-linecap="round"/>
+                  <path d="M13 28 Q20 34 27 28" fill="#C75B3A" opacity="0.15"/>
+                  <line x1="20" y1="24" x2="20" y2="28" stroke="#C75B3A" stroke-width="0.5" opacity="0.3"/>
+                </svg>
+              </div>
+              <div class="chat-greeting">
+                Good <span class="chat-greeting-accent" id="tod">morning</span>,<br>Tutu
+              </div>
+              <div class="chat-hint">I'm here to help you think through strategy, content, and what's next. What's on your mind?</div>
+            </div>
+          </div>
+          <div class="chat-input-bar">
+            <div class="chat-input-wrap">
+              <input type="text" class="chat-input" id="chat-input" placeholder="Ask Imani anything..." autocomplete="off">
+              <button class="chat-send" id="chat-send">
+                <svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4z"/></svg>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- INSTAGRAM -->
+      <div class="panel" id="panel-instagram">
+        <div class="platform-page">
+          <div class="page-header">
+            <div class="page-header-row">
+              <div>
+                <div class="page-title" style="display:flex;align-items:center;gap:12px;">
+                  <span class="platform-dot" style="background:var(--instagram);width:10px;height:10px;"></span> Instagram
+                </div>
+                <div class="page-subtitle">Manage your Instagram content and track performance</div>
+              </div>
+              <button class="btn btn-accent" onclick="openModal('instagram')">+ New Post</button>
+            </div>
+          </div>
+          <div class="platform-body">
+            <div class="platform-stats">
+              <div class="mini-stat"><div class="mini-stat-label">Followers</div><div class="mini-stat-value" style="color:var(--instagram)">8.4K</div><div class="mini-stat-change up">+320 this week</div></div>
+              <div class="mini-stat"><div class="mini-stat-label">Engagement</div><div class="mini-stat-value" style="color:var(--instagram)">5.1%</div><div class="mini-stat-change up">+0.4% vs last week</div></div>
+              <div class="mini-stat"><div class="mini-stat-label">Reach</div><div class="mini-stat-value" style="color:var(--instagram)">12.3K</div><div class="mini-stat-change up">+15% growth</div></div>
+              <div class="mini-stat"><div class="mini-stat-label">Posts This Month</div><div class="mini-stat-value" style="color:var(--instagram)">14</div><div class="mini-stat-change">6 scheduled</div></div>
+            </div>
+            <div class="content-section-title">Recent & Scheduled</div>
+            <div class="content-list" id="ig-content"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- TWITTER -->
+      <div class="panel" id="panel-twitter">
+        <div class="platform-page">
+          <div class="page-header">
+            <div class="page-header-row">
+              <div>
+                <div class="page-title" style="display:flex;align-items:center;gap:12px;">
+                  <span class="platform-dot" style="background:var(--twitter);width:10px;height:10px;"></span> Twitter / X
+                </div>
+                <div class="page-subtitle">Manage your Twitter threads, posts, and engagement</div>
+              </div>
+              <button class="btn btn-accent" onclick="openModal('twitter')">+ New Post</button>
+            </div>
+          </div>
+          <div class="platform-body">
+            <div class="platform-stats">
+              <div class="mini-stat"><div class="mini-stat-label">Followers</div><div class="mini-stat-value" style="color:var(--twitter)">3.2K</div><div class="mini-stat-change up">+180 this week</div></div>
+              <div class="mini-stat"><div class="mini-stat-label">Engagement</div><div class="mini-stat-value" style="color:var(--twitter)">3.8%</div><div class="mini-stat-change up">+0.2% vs last week</div></div>
+              <div class="mini-stat"><div class="mini-stat-label">Impressions</div><div class="mini-stat-value" style="color:var(--twitter)">28.1K</div><div class="mini-stat-change up">+22% growth</div></div>
+              <div class="mini-stat"><div class="mini-stat-label">Posts This Month</div><div class="mini-stat-value" style="color:var(--twitter)">22</div><div class="mini-stat-change">8 scheduled</div></div>
+            </div>
+            <div class="content-section-title">Recent & Scheduled</div>
+            <div class="content-list" id="tw-content"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- TIKTOK -->
+      <div class="panel" id="panel-tiktok">
+        <div class="platform-page">
+          <div class="page-header">
+            <div class="page-header-row">
+              <div>
+                <div class="page-title" style="display:flex;align-items:center;gap:12px;">
+                  <span class="platform-dot" style="background:var(--tiktok);width:10px;height:10px;"></span> TikTok
+                </div>
+                <div class="page-subtitle">Manage your TikTok videos, drafts, and analytics</div>
+              </div>
+              <button class="btn btn-accent" onclick="openModal('tiktok')">+ New Video</button>
+            </div>
+          </div>
+          <div class="platform-body">
+            <div class="platform-stats">
+              <div class="mini-stat"><div class="mini-stat-label">Followers</div><div class="mini-stat-value" style="color:var(--tiktok)">2.1K</div><div class="mini-stat-change up">+540 this week</div></div>
+              <div class="mini-stat"><div class="mini-stat-label">Avg Views</div><div class="mini-stat-value" style="color:var(--tiktok)">4.7K</div><div class="mini-stat-change up">+31% growth</div></div>
+              <div class="mini-stat"><div class="mini-stat-label">Engagement</div><div class="mini-stat-value" style="color:var(--tiktok)">7.2%</div><div class="mini-stat-change up">+1.1% vs last week</div></div>
+              <div class="mini-stat"><div class="mini-stat-label">Videos This Month</div><div class="mini-stat-value" style="color:var(--tiktok)">8</div><div class="mini-stat-change">3 scheduled</div></div>
+            </div>
+            <div class="content-section-title">Recent & Scheduled</div>
+            <div class="content-list" id="tt-content"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- LINKEDIN -->
+      <div class="panel" id="panel-linkedin">
+        <div class="platform-page">
+          <div class="page-header">
+            <div class="page-header-row">
+              <div>
+                <div class="page-title" style="display:flex;align-items:center;gap:12px;">
+                  <span class="platform-dot" style="background:var(--linkedin);width:10px;height:10px;"></span> LinkedIn
+                </div>
+                <div class="page-subtitle">Manage your LinkedIn articles, posts, and professional presence</div>
+              </div>
+              <button class="btn btn-accent" onclick="openModal('linkedin')">+ New Post</button>
+            </div>
+          </div>
+          <div class="platform-body">
+            <div class="platform-stats">
+              <div class="mini-stat"><div class="mini-stat-label">Connections</div><div class="mini-stat-value" style="color:var(--linkedin)">1.9K</div><div class="mini-stat-change up">+95 this week</div></div>
+              <div class="mini-stat"><div class="mini-stat-label">Engagement</div><div class="mini-stat-value" style="color:var(--linkedin)">6.3%</div><div class="mini-stat-change up">+0.8% vs last week</div></div>
+              <div class="mini-stat"><div class="mini-stat-label">Impressions</div><div class="mini-stat-value" style="color:var(--linkedin)">9.8K</div><div class="mini-stat-change up">+18% growth</div></div>
+              <div class="mini-stat"><div class="mini-stat-label">Posts This Month</div><div class="mini-stat-value" style="color:var(--linkedin)">6</div><div class="mini-stat-change">2 scheduled</div></div>
+            </div>
+            <div class="content-section-title">Recent & Scheduled</div>
+            <div class="content-list" id="li-content"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ANALYTICS -->
+      <div class="panel" id="panel-analytics">
+        <div class="analytics-page">
+          <div class="page-header">
+            <div class="page-header-row">
+              <div>
+                <div class="page-title">Analytics</div>
+                <div class="page-subtitle">Cross-platform performance at a glance</div>
+              </div>
+              <div style="display:flex;gap:8px;">
+                <button class="btn btn-ghost">Last 7 Days</button>
+                <button class="btn btn-ghost">Export</button>
+              </div>
+            </div>
+          </div>
+          <div class="analytics-body">
+            <div class="analytics-tabs" id="analytics-tabs">
+              <button class="analytics-tab active" data-tab="all">All Platforms</button>
+              <button class="analytics-tab" data-tab="instagram">Instagram</button>
+              <button class="analytics-tab" data-tab="twitter">Twitter / X</button>
+              <button class="analytics-tab" data-tab="tiktok">TikTok</button>
+              <button class="analytics-tab" data-tab="linkedin">LinkedIn</button>
+            </div>
+            <div class="analytics-overview">
+              <div class="stat-card"><div class="stat-label">Total Reach</div><div class="stat-value" id="a-reach">52.1K</div><div class="stat-change up" id="a-reach-c">+12% from last week</div></div>
+              <div class="stat-card"><div class="stat-label">Engagement Rate</div><div class="stat-value" id="a-eng">5.1%</div><div class="stat-change up" id="a-eng-c">+0.4% from last week</div></div>
+              <div class="stat-card"><div class="stat-label">Total Followers</div><div class="stat-value" id="a-fol">15.6K</div><div class="stat-change up" id="a-fol-c">+1,135 new followers</div></div>
+              <div class="stat-card"><div class="stat-label">Content Published</div><div class="stat-value" id="a-pub">50</div><div class="stat-change" id="a-pub-c">19 scheduled</div></div>
+            </div>
+            <div class="charts-row">
+              <div class="chart-card">
+                <div class="chart-card-title">Reach Over Time</div>
+                <div class="chart-area"><canvas id="chart-reach"></canvas></div>
+              </div>
+              <div class="chart-card">
+                <div class="chart-card-title">Platform Breakdown</div>
+                <div class="chart-area"><canvas id="chart-platform"></canvas></div>
+              </div>
+            </div>
+            <div class="chart-card">
+              <div class="chart-card-title">Engagement by Platform</div>
+              <div class="chart-area"><canvas id="chart-engagement"></canvas></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- SUB-AGENTS -->
+      <div class="panel" id="panel-agents">
+        <div class="agents-page">
+          <div class="page-header">
+            <div class="page-header-row">
+              <div>
+                <div class="page-title">Sub-Agents</div>
+                <div class="page-subtitle">Specialized operators extending Imani's capabilities</div>
+              </div>
+            </div>
+          </div>
+          <div class="agents-body">
+            <div class="agents-grid">
+              <div class="agent-card">
+                <div class="agent-card-head">
+                  <div class="agent-icon" style="background:var(--accent-subtle);color:var(--accent);">&#9998;</div>
+                  <div class="agent-name">Content Creator</div>
+                </div>
+                <div class="agent-desc">Generates captions, scripts, and content ideas tailored to each platform and your audience.</div>
+                <div class="agent-badge">Coming Soon</div>
+              </div>
+              <div class="agent-card">
+                <div class="agent-card-head">
+                  <div class="agent-icon" style="background:var(--instagram-bg);color:var(--instagram);">&#9783;</div>
+                  <div class="agent-name">Analytics Analyst</div>
+                </div>
+                <div class="agent-desc">Deep dives into performance metrics, identifies trends, and surfaces actionable recommendations.</div>
+                <div class="agent-badge">Coming Soon</div>
+              </div>
+              <div class="agent-card">
+                <div class="agent-card-head">
+                  <div class="agent-icon" style="background:var(--twitter-bg);color:var(--twitter);">&#9734;</div>
+                  <div class="agent-name">Audience Specialist</div>
+                </div>
+                <div class="agent-desc">Analyzes audience demographics, sentiment, and suggests optimization strategies for growth.</div>
+                <div class="agent-badge">Coming Soon</div>
+              </div>
+              <div class="agent-card">
+                <div class="agent-card-head">
+                  <div class="agent-icon" style="background:var(--tiktok-bg);color:var(--tiktok);">&#9881;</div>
+                  <div class="agent-name">Campaign Manager</div>
+                </div>
+                <div class="agent-desc">Plans, schedules, and optimizes multi-platform content campaigns with clear milestones.</div>
+                <div class="agent-badge">Coming Soon</div>
+              </div>
+              <div class="agent-card">
+                <div class="agent-card-head">
+                  <div class="agent-icon" style="background:var(--linkedin-bg);color:var(--linkedin);">&#9878;</div>
+                  <div class="agent-name">Brand Voice Guardian</div>
+                </div>
+                <div class="agent-desc">Ensures all content maintains consistent tone, voice, and brand alignment across platforms.</div>
+                <div class="agent-badge">Coming Soon</div>
+              </div>
+              <div class="agent-card">
+                <div class="agent-card-head">
+                  <div class="agent-icon" style="background:rgba(52,211,153,0.12);color:var(--success);">&#10003;</div>
+                  <div class="agent-name">Trend Scout</div>
+                </div>
+                <div class="agent-desc">Monitors trends across platforms and recommends timely content opportunities to ride the wave.</div>
+                <div class="agent-badge">Coming Soon</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- MODAL -->
+  <div class="modal-overlay" id="modal">
+    <div class="modal-box">
+      <div class="modal-title" id="modal-title">New Content</div>
+      <form id="modal-form">
+        <input type="hidden" id="modal-platform" value="">
+        <div class="field">
+          <label class="field-label">Title</label>
+          <input type="text" class="field-input" id="field-title" placeholder="e.g. Behind the scenes of our new launch" required>
+        </div>
+        <div class="field">
+          <label class="field-label">Type</label>
+          <select class="field-input" id="field-type">
+            <option value="post">Post</option>
+            <option value="reel">Reel / Video</option>
+            <option value="story">Story</option>
+            <option value="thread">Thread</option>
+            <option value="article">Article</option>
+          </select>
+        </div>
+        <div class="field">
+          <label class="field-label">Scheduled Date</label>
+          <input type="date" class="field-input" id="field-date">
+        </div>
+        <div class="field">
+          <label class="field-label">Notes</label>
+          <input type="text" class="field-input" id="field-notes" placeholder="Any extra context...">
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+          <button type="submit" class="btn btn-accent">Add Content</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    // ===== DATA =====
+    const platformData = {
+      instagram: {
+        content: [
+          { title: 'Founder story: why I started this', type: 'Reel', date: 'Mar 20, 2026', status: 'scheduled', engagement: '\u2014' },
+          { title: 'Workshop recap carousel', type: 'Post', date: 'Mar 18, 2026', status: 'published', engagement: '842' },
+          { title: '5 things I wish I knew about branding', type: 'Reel', date: 'Mar 16, 2026', status: 'published', engagement: '1.2K' },
+          { title: 'Client transformation spotlight', type: 'Post', date: 'Mar 14, 2026', status: 'published', engagement: '634' },
+          { title: 'Behind the scenes: content day', type: 'Story', date: 'Mar 13, 2026', status: 'published', engagement: '2.1K' },
+          { title: 'Monday motivation + weekly focus', type: 'Post', date: 'Mar 22, 2026', status: 'scheduled', engagement: '\u2014' },
+        ],
+        listId: 'ig-content'
+      },
+      twitter: {
+        content: [
+          { title: 'Thread: The creative economy is broken \u2014 here\'s what I\'d fix', type: 'Thread', date: 'Mar 19, 2026', status: 'scheduled', engagement: '\u2014' },
+          { title: 'Quick take on the Hormozi podcast ep', type: 'Post', date: 'Mar 18, 2026', status: 'published', engagement: '384' },
+          { title: 'Unpopular opinion: strategy > hustle', type: 'Post', date: 'Mar 17, 2026', status: 'published', engagement: '1.8K' },
+          { title: 'Breakdown: How I structure advisory sessions', type: 'Thread', date: 'Mar 15, 2026', status: 'published', engagement: '926' },
+          { title: 'What founders get wrong about content', type: 'Post', date: 'Mar 21, 2026', status: 'scheduled', engagement: '\u2014' },
+        ],
+        listId: 'tw-content'
+      },
+      tiktok: {
+        content: [
+          { title: 'Day in my life as a strategic advisor', type: 'Video', date: 'Mar 19, 2026', status: 'scheduled', engagement: '\u2014' },
+          { title: 'Replying to @founder: your brand isn\'t your logo', type: 'Video', date: 'Mar 17, 2026', status: 'published', engagement: '4.7K' },
+          { title: '3 tools I use every single day', type: 'Video', date: 'Mar 15, 2026', status: 'published', engagement: '3.2K' },
+          { title: 'Workshop energy check', type: 'Video', date: 'Mar 13, 2026', status: 'published', engagement: '6.1K' },
+        ],
+        listId: 'tt-content'
+      },
+      linkedin: {
+        content: [
+          { title: 'Why the creative economy needs better infrastructure', type: 'Article', date: 'Mar 21, 2026', status: 'scheduled', engagement: '\u2014' },
+          { title: 'Lessons from advising 12 founders this quarter', type: 'Post', date: 'Mar 17, 2026', status: 'published', engagement: '528' },
+          { title: 'The difference between strategy and tactics', type: 'Post', date: 'Mar 14, 2026', status: 'published', engagement: '412' },
+          { title: 'Stamfordham partnership announcement', type: 'Post', date: 'Mar 12, 2026', status: 'published', engagement: '891' },
+        ],
+        listId: 'li-content'
+      }
+    };
+
+    // ===== NAVIGATION =====
+    document.querySelectorAll('.nav-item').forEach(item => {
+      item.addEventListener('click', function() {
+        document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+        document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+        this.classList.add('active');
+        const panel = document.getElementById('panel-' + this.dataset.panel);
+        if (panel) panel.classList.add('active');
+      });
+    });
+
+    // ===== TIME OF DAY =====
+    const h = new Date().getHours();
+    document.getElementById('tod').textContent = h < 12 ? 'morning' : h < 17 ? 'afternoon' : 'evening';
+
+    // ===== TOOL STATUS (loaded from /health) =====
+    async function loadToolStatus() {
+      try {
+        const res = await fetch('/health');
+        const data = await res.json();
+        const el = document.getElementById('tools-status');
+        if (data.tools) {
+          el.innerHTML = Object.entries(data.tools).map(([k, v]) => {
+            const on = v === 'connected' || v === 'configured';
+            return '<span class="tool-dot ' + (on ? 'on' : 'off') + '">' + k.charAt(0).toUpperCase() + k.slice(1) + '</span>';
+          }).join('');
+        }
+      } catch(e) { /* preview mode — skip */ }
+    }
+    loadToolStatus();
+
+    // ===== CHAT (wired to real /chat and /messages endpoints) =====
+    const imaniAvatarSVG = '<svg viewBox="0 0 28 28" xmlns="http://www.w3.org/2000/svg" width="28" height="28">' +
+      '<rect width="28" height="28" rx="8" fill="#1F1F24"/>' +
+      '<rect width="28" height="28" rx="8" fill="url(#glass-grad)" opacity="0.5"/>' +
+      '<circle cx="14" cy="11" r="5.5" fill="url(#face-glow)" stroke="#C75B3A" stroke-width="0.4" opacity="0.8"/>' +
+      '<ellipse cx="11.5" cy="10" rx="1" ry="1.2" fill="#C75B3A" opacity="0.7"/>' +
+      '<ellipse cx="16.5" cy="10" rx="1" ry="1.2" fill="#C75B3A" opacity="0.7"/>' +
+      '<path d="M12 13 Q14 14.8 16 13" stroke="#C75B3A" stroke-width="0.6" fill="none" opacity="0.5" stroke-linecap="round"/>' +
+      '<path d="M9 19 Q14 23.5 19 19" fill="#C75B3A" opacity="0.12"/>' +
+      '</svg>';
+
+    function addMessage(role, text) {
+      const container = document.getElementById('chat-messages');
+      const empty = document.getElementById('chat-empty');
+      if (empty) empty.remove();
+
+      const div = document.createElement('div');
+      div.className = 'msg ' + (role === 'user' ? 'msg-user' : 'msg-ai');
+
+      if (role === 'user') {
+        div.innerHTML = '<div class="msg-bubble">' + escapeHtml(text) + '</div>';
+      } else {
+        let parsed;
+        try { parsed = marked.parse(text); } catch(e) { parsed = text.replace(/\n/g,'<br>'); }
+        div.innerHTML = '<div class="msg-avatar">' + imaniAvatarSVG + '</div><div class="msg-bubble">' + parsed + '</div>';
+      }
+
+      container.appendChild(div);
+      container.scrollTop = container.scrollHeight;
+    }
+
+    function escapeHtml(text) {
+      const d = document.createElement('div');
+      d.textContent = text;
+      return d.innerHTML;
+    }
+
+    function showTyping() {
+      const container = document.getElementById('chat-messages');
+      const t = document.createElement('div');
+      t.className = 'typing-indicator msg-ai';
+      t.id = 'typing';
+      t.innerHTML = '<div class="msg-avatar">' + imaniAvatarSVG + '</div>' +
+        '<div class="typing-dots"><span></span><span></span><span></span></div>';
+      container.appendChild(t);
+      container.scrollTop = container.scrollHeight;
+    }
+
+    function hideTyping() {
+      const t = document.getElementById('typing');
+      if (t) t.remove();
+    }
+
+    async function sendChat() {
+      const input = document.getElementById('chat-input');
+      const msg = input.value.trim();
+      if (!msg) return;
+      addMessage('user', msg);
+      input.value = '';
+      showTyping();
+
+      try {
+        const res = await fetch('/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message: msg })
+        });
+        const data = await res.json();
+        hideTyping();
+        addMessage('assistant', data.response || "I'm processing that. Give me a moment.");
+      } catch(e) {
+        hideTyping();
+        addMessage('assistant', "Connection issue. I'm still here \u2014 try again in a moment.");
+      }
+    }
+
+    document.getElementById('chat-send').addEventListener('click', sendChat);
+    document.getElementById('chat-input').addEventListener('keydown', e => {
+      if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChat(); }
+    });
+
+    // Load chat history from backend
+    async function loadHistory() {
+      try {
+        const res = await fetch('/messages?limit=50');
+        const data = await res.json();
+        if (data.messages && data.messages.length > 0) {
+          const empty = document.getElementById('chat-empty');
+          if (empty) empty.remove();
+          data.messages.forEach(m => {
+            addMessage(m.role === 'user' ? 'user' : 'assistant', m.content);
+          });
+        }
+      } catch(e) { /* preview mode — keep greeting */ }
+    }
+    loadHistory();
+
+    // ===== RENDER PLATFORM CONTENT =====
+    function renderContent(platformKey) {
+      const data = platformData[platformKey];
+      const list = document.getElementById(data.listId);
+      list.innerHTML = '';
+
+      data.content.forEach(item => {
+        const row = document.createElement('div');
+        row.className = 'content-row';
+        row.innerHTML =
+          '<div class="content-status status-' + item.status + '"></div>' +
+          '<div class="content-info">' +
+            '<div class="content-title">' + item.title + '</div>' +
+            '<div class="content-meta">' + item.type + ' &middot; ' + item.date + ' &middot; <span style="text-transform:capitalize">' + item.status + '</span></div>' +
+          '</div>' +
+          '<div class="content-engagement">' +
+            '<div class="content-eng-value">' + item.engagement + '</div>' +
+            '<div class="content-eng-label">' + (item.engagement === '\u2014' ? '' : 'engagements') + '</div>' +
+          '</div>' +
+          '<div class="content-actions">' +
+            '<button class="content-action-btn" title="Edit"><svg viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>' +
+            '<button class="content-action-btn" title="More"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="1"/><circle cx="12" cy="5" r="1"/><circle cx="12" cy="19" r="1"/></svg></button>' +
+          '</div>';
+        list.appendChild(row);
+      });
+    }
+
+    Object.keys(platformData).forEach(renderContent);
+
+    // ===== MODAL =====
+    function openModal(platform) {
+      document.getElementById('modal-platform').value = platform;
+      const names = { instagram: 'Instagram', twitter: 'Twitter / X', tiktok: 'TikTok', linkedin: 'LinkedIn' };
+      document.getElementById('modal-title').textContent = 'New ' + (names[platform] || '') + ' Content';
+      document.getElementById('modal').classList.add('active');
+    }
+
+    function closeModal() {
+      document.getElementById('modal').classList.remove('active');
+      document.getElementById('modal-form').reset();
+    }
+
+    document.getElementById('modal').addEventListener('click', e => {
+      if (e.target.id === 'modal') closeModal();
+    });
+
+    document.getElementById('modal-form').addEventListener('submit', e => {
+      e.preventDefault();
+      const platform = document.getElementById('modal-platform').value;
+      const title = document.getElementById('field-title').value;
+      const type = document.getElementById('field-type').value;
+      const date = document.getElementById('field-date').value;
+
+      if (platformData[platform]) {
+        const dateStr = date ? new Date(date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'TBD';
+        const typeNames = { post: 'Post', reel: 'Reel / Video', story: 'Story', thread: 'Thread', article: 'Article' };
+        platformData[platform].content.unshift({
+          title: title, type: typeNames[type] || type, date: dateStr, status: 'draft', engagement: '\u2014'
+        });
+        renderContent(platform);
+      }
+      closeModal();
+    });
+
+    // ===== ANALYTICS TABS =====
+    const analyticsData = {
+      all:       { reach: '52.1K', reachC: '+12% from last week', eng: '5.1%', engC: '+0.4% from last week', fol: '15.6K', folC: '+1,135 new followers', pub: '50', pubC: '19 scheduled' },
+      instagram: { reach: '12.3K', reachC: '+15% from last week', eng: '5.1%', engC: '+0.4% from last week', fol: '8.4K', folC: '+320 new followers', pub: '14', pubC: '6 scheduled' },
+      twitter:   { reach: '28.1K', reachC: '+22% from last week', eng: '3.8%', engC: '+0.2% from last week', fol: '3.2K', folC: '+180 new followers', pub: '22', pubC: '8 scheduled' },
+      tiktok:    { reach: '4.7K',  reachC: '+31% from last week', eng: '7.2%', engC: '+1.1% from last week', fol: '2.1K', folC: '+540 new followers', pub: '8',  pubC: '3 scheduled' },
+      linkedin:  { reach: '9.8K',  reachC: '+18% from last week', eng: '6.3%', engC: '+0.8% from last week', fol: '1.9K', folC: '+95 new followers',  pub: '6',  pubC: '2 scheduled' },
+    };
+
+    document.querySelectorAll('.analytics-tab').forEach(tab => {
+      tab.addEventListener('click', function() {
+        document.querySelectorAll('.analytics-tab').forEach(t => t.classList.remove('active'));
+        this.classList.add('active');
+        const d = analyticsData[this.dataset.tab];
+        if (d) {
+          document.getElementById('a-reach').textContent = d.reach;
+          document.getElementById('a-reach-c').textContent = d.reachC;
+          document.getElementById('a-eng').textContent = d.eng;
+          document.getElementById('a-eng-c').textContent = d.engC;
+          document.getElementById('a-fol').textContent = d.fol;
+          document.getElementById('a-fol-c').textContent = d.folC;
+          document.getElementById('a-pub').textContent = d.pub;
+          document.getElementById('a-pub-c').textContent = d.pubC;
+        }
+      });
+    });
+
+    // ===== CHARTS =====
+    const chartColors = { grid: 'rgba(42,42,50,0.5)', tick: '#5A5560' };
+    Chart.defaults.color = chartColors.tick;
+    Chart.defaults.borderColor = chartColors.grid;
+
+    new Chart(document.getElementById('chart-reach'), {
+      type: 'line',
+      data: {
+        labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+        datasets: [
+          { label: 'Instagram', data: [1800,2200,1900,2800,2600,3100,2400], borderColor: '#E1306C', backgroundColor: 'rgba(225,48,108,0.05)', borderWidth: 2, tension: 0.4, fill: true, pointRadius: 3 },
+          { label: 'Twitter', data: [3200,4100,3800,5200,4800,5100,4600], borderColor: '#1DA1F2', backgroundColor: 'rgba(29,161,242,0.05)', borderWidth: 2, tension: 0.4, fill: true, pointRadius: 3 },
+          { label: 'TikTok', data: [800,1200,3200,1400,900,1100,2100], borderColor: '#FE2C55', backgroundColor: 'rgba(254,44,85,0.05)', borderWidth: 2, tension: 0.4, fill: true, pointRadius: 3 },
+          { label: 'LinkedIn', data: [1200,1500,1300,1800,2100,1600,1400], borderColor: '#0A66C2', backgroundColor: 'rgba(10,102,194,0.05)', borderWidth: 2, tension: 0.4, fill: true, pointRadius: 3 },
+        ]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { position: 'bottom', labels: { padding: 16, usePointStyle: true, pointStyle: 'circle', font: { size: 11 } } } },
+        scales: {
+          y: { beginAtZero: true, grid: { color: chartColors.grid }, ticks: { font: { size: 11 } } },
+          x: { grid: { display: false }, ticks: { font: { size: 11 } } }
+        }
+      }
+    });
+
+    new Chart(document.getElementById('chart-platform'), {
+      type: 'doughnut',
+      data: {
+        labels: ['Instagram', 'Twitter / X', 'TikTok', 'LinkedIn'],
+        datasets: [{ data: [24,38,18,20], backgroundColor: ['#E1306C','#1DA1F2','#FE2C55','#0A66C2'], borderColor: '#18181C', borderWidth: 3 }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false, cutout: '65%',
+        plugins: { legend: { position: 'bottom', labels: { padding: 16, usePointStyle: true, pointStyle: 'circle', font: { size: 11 } } } }
+      }
+    });
+
+    new Chart(document.getElementById('chart-engagement'), {
+      type: 'bar',
+      data: {
+        labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+        datasets: [
+          { label: 'Instagram', data: [120,180,150,220,200,280,190], backgroundColor: '#E1306C', borderRadius: 4 },
+          { label: 'Twitter', data: [200,280,250,340,310,290,260], backgroundColor: '#1DA1F2', borderRadius: 4 },
+          { label: 'TikTok', data: [80,120,420,140,90,110,200], backgroundColor: '#FE2C55', borderRadius: 4 },
+          { label: 'LinkedIn', data: [60,90,75,110,130,85,70], backgroundColor: '#0A66C2', borderRadius: 4 },
+        ]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { position: 'bottom', labels: { padding: 16, usePointStyle: true, pointStyle: 'circle', font: { size: 11 } } } },
+        scales: {
+          y: { beginAtZero: true, stacked: true, grid: { color: chartColors.grid }, ticks: { font: { size: 11 } } },
+          x: { stacked: true, grid: { display: false }, ticks: { font: { size: 11 } } }
+        }
+      }
+    });
+  </script>
+</body>
+</html>"""
 
 
 # ============================================================
@@ -87,120 +1217,12 @@ async def whatsapp_webhook(request: Request):
 
 
 # ============================================================
-# Web Chat Interface (backup / desktop access)
+# Web Dashboard V2 + Chat API
 # ============================================================
 @app.get("/", response_class=HTMLResponse)
 async def home():
-    """Simple web chat interface."""
-    # Build tool status for UI
-    tools_status = {
-        "Calendar": calendar.is_connected(),
-        "Sheets": sheets.is_connected(),
-        "WhatsApp": bool(os.getenv("TWILIO_ACCOUNT_SID")),
-        "Voice": bool(os.getenv("OPENAI_API_KEY")),
-    }
-    status_dots = " ".join(
-        f'<span class="dot {"on" if v else "off"}" title="{k}: {"connected" if v else "not configured"}">{k}</span>'
-        for k, v in tools_status.items()
-    )
-
-    return f"""
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <title>Imani â Tutu's Operator</title>
-        <meta name="viewport" content="width=device-width, initial-scale=1">
-        <style>
-            * {{ margin: 0; padding: 0; box-sizing: border-box; }}
-            body {{ font-family: 'Inter', -apple-system, sans-serif; background: #0f0f1a; color: #e0e0e0; height: 100vh; display: flex; flex-direction: column; }}
-            .header {{ padding: 20px; background: #1a1a2e; border-bottom: 2px solid #e94560; text-align: center; }}
-            .header h1 {{ font-size: 1.5rem; color: #e94560; letter-spacing: 0.05em; }}
-            .header p {{ font-size: 0.85rem; color: #888; margin-top: 4px; }}
-            .tools-bar {{ display: flex; justify-content: center; gap: 16px; margin-top: 10px; flex-wrap: wrap; }}
-            .dot {{ font-size: 0.75rem; padding: 3px 10px; border-radius: 12px; }}
-            .dot.on {{ background: rgba(0, 200, 100, 0.15); color: #00c864; border: 1px solid #00c864; }}
-            .dot.off {{ background: rgba(255, 255, 255, 0.05); color: #555; border: 1px solid #333; }}
-            .chat {{ flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 16px; }}
-            .msg {{ max-width: 80%; padding: 14px 18px; border-radius: 16px; line-height: 1.6; font-size: 0.95rem; white-space: pre-wrap; }}
-            .msg.user {{ align-self: flex-end; background: #0f3460; color: #fff; border-bottom-right-radius: 4px; }}
-            .msg.advisor {{ align-self: flex-start; background: #1a1a2e; border: 1px solid #333; border-bottom-left-radius: 4px; }}
-            .input-area {{ padding: 16px 20px; background: #1a1a2e; border-top: 1px solid #333; display: flex; gap: 12px; }}
-            .input-area textarea {{ flex: 1; background: #0f0f1a; color: #e0e0e0; border: 1px solid #444; border-radius: 12px; padding: 12px 16px; font-size: 0.95rem; font-family: inherit; resize: none; outline: none; }}
-            .input-area textarea:focus {{ border-color: #e94560; }}
-            .input-area button {{ background: #e94560; color: #fff; border: none; border-radius: 12px; padding: 12px 24px; font-size: 0.95rem; cursor: pointer; font-weight: 600; }}
-            .input-area button:hover {{ background: #c73550; }}
-            .typing {{ color: #e94560; font-style: italic; padding: 8px 18px; display: flex; align-items: center; gap: 8px; }}
-            .typing .pulse {{ width: 8px; height: 8px; background: #e94560; border-radius: 50%; animation: pulse 1s infinite; }}
-            @keyframes pulse {{ 0%, 100% {{ opacity: 0.3; }} 50% {{ opacity: 1; }} }}
-            .footer {{ text-align: center; padding: 8px; font-size: 0.7rem; color: #444; }}
-        </style>
-    </head>
-    <body>
-        <div class="header">
-            <h1>IMANI</h1>
-            <p>Tutu's Operator &bull; Advisor + Agent &bull; Phase 1: The Foundation</p>
-            <div class="tools-bar">{status_dots}</div>
-        </div>
-        <div class="chat" id="chat"></div>
-        <div class="input-area">
-            <textarea id="input" rows="2" placeholder="Talk to Imani..." onkeydown="if(event.key==='Enter'&&!event.shiftKey){{event.preventDefault();send()}}"></textarea>
-            <button onclick="send()">Send</button>
-        </div>
-        <div class="footer">Build, or be built upon.</div>
-        <script>
-            const chat = document.getElementById('chat');
-            const input = document.getElementById('input');
-            function addMsg(text, type) {{
-                const d = document.createElement('div');
-                d.className = 'msg ' + type;
-                d.textContent = text;
-                chat.appendChild(d);
-                chat.scrollTop = chat.scrollHeight;
-            }}
-            async function send() {{
-                const text = input.value.trim();
-                if (!text) return;
-                addMsg(text, 'user');
-                input.value = '';
-                const typing = document.createElement('div');
-                typing.className = 'typing';
-                typing.innerHTML = '<div class="pulse"></div> Imani is working...';
-                chat.appendChild(typing);
-                chat.scrollTop = chat.scrollHeight;
-                try {{
-                    const res = await fetch('/chat', {{
-                        method: 'POST',
-                        headers: {{'Content-Type': 'application/json'}},
-                        body: JSON.stringify({{message: text}})
-                    }});
-                    const data = await res.json();
-                    typing.remove();
-                    addMsg(data.response, 'advisor');
-                }} catch(e) {{
-                    typing.remove();
-                    addMsg('Connection error. Try again.', 'advisor');
-                }}
-            }}
-            async function loadHistory() {{
-                try {{
-                    const res = await fetch('/messages?limit=50');
-                    const data = await res.json();
-                    if (data.messages && data.messages.length > 0) {{
-                        data.messages.forEach(m => {{
-                            addMsg(m.content, m.role === 'user' ? 'user' : 'advisor');
-                        }});
-                    }} else {{
-                        addMsg("Hey Tutu. It's Imani. What are we working on today?", 'advisor');
-                    }}
-                }} catch(e) {{
-                    addMsg("Hey Tutu. It's Imani. What are we working on today?", 'advisor');
-                }}
-            }}
-            loadHistory();
-        </script>
-    </body>
-    </html>
-    """
+    """Serve the Imani V2 dashboard."""
+    return DASHBOARD_HTML
 
 
 @app.get("/messages")
@@ -227,7 +1249,7 @@ async def health():
     return {
         "status": "alive",
         "agent": "Imani",
-        "phase": "Phase 1: The Foundation",
+        "phase": "Phase 2: Dashboard V2",
         "tools": {
             "calendar": "connected" if calendar.is_connected() else "not configured",
             "sheets": "connected" if sheets.is_connected() else "not configured",
