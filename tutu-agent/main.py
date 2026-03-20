@@ -2,7 +2,7 @@
 Tutu's Strategic AI Advisor — API Agent
 Deployed on Railway, connected via WhatsApp (Twilio)
 
-Dashboard V2 — Imani: dark theme, per-platform content pages, analytics
+Dashboard V3 — Imani: dark theme, per-platform content pages, LIVE analytics via Metricool
 """
 import os
 import logging
@@ -18,6 +18,7 @@ from memory import ConversationMemory
 from sheets import SheetsManager
 from calendar_tool import CalendarManager
 from gmail import GmailManager
+from metricool import MetricoolClient
 from scheduler import setup_schedules
 
 logging.basicConfig(level=logging.INFO)
@@ -28,6 +29,7 @@ memory = ConversationMemory()
 sheets = SheetsManager()
 calendar = CalendarManager()
 gmail = GmailManager()
+metricool = MetricoolClient()
 advisor = TutuAdvisor(memory=memory, sheets=sheets, calendar=calendar, gmail=gmail)
 scheduler = AsyncIOScheduler()
 
@@ -37,12 +39,14 @@ async def lifespan(app: FastAPI):
     """Startup and shutdown events."""
     setup_schedules(scheduler, advisor, memory, gmail=gmail)
     scheduler.start()
-    logger.info("Imani is online. Calendar: %s | Sheets: %s | Gmail: %s",
+    logger.info("Imani is online. Calendar: %s | Sheets: %s | Gmail: %s | Metricool: %s",
                 "connected" if calendar.is_connected() else "not configured",
                 "connected" if sheets.is_connected() else "not configured",
-                "connected" if gmail.is_connected() else "not configured")
+                "connected" if gmail.is_connected() else "not configured",
+                "connected" if metricool.is_connected() else "not configured")
     yield
     scheduler.shutdown()
+    await metricool.close()
     logger.info("Imani is shutting down.")
 
 
@@ -852,48 +856,130 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
   </div>
 
   <script>
-    // ===== DATA =====
+    // ===== DATA (loaded from Metricool via /api endpoints) =====
     const platformData = {
-      instagram: {
-        content: [
-          { title: 'Founder story: why I started this', type: 'Reel', date: 'Mar 20, 2026', status: 'scheduled', engagement: '\u2014' },
-          { title: 'Workshop recap carousel', type: 'Post', date: 'Mar 18, 2026', status: 'published', engagement: '842' },
-          { title: '5 things I wish I knew about branding', type: 'Reel', date: 'Mar 16, 2026', status: 'published', engagement: '1.2K' },
-          { title: 'Client transformation spotlight', type: 'Post', date: 'Mar 14, 2026', status: 'published', engagement: '634' },
-          { title: 'Behind the scenes: content day', type: 'Story', date: 'Mar 13, 2026', status: 'published', engagement: '2.1K' },
-          { title: 'Monday motivation + weekly focus', type: 'Post', date: 'Mar 22, 2026', status: 'scheduled', engagement: '\u2014' },
-        ],
-        listId: 'ig-content'
-      },
-      twitter: {
-        content: [
-          { title: 'Thread: The creative economy is broken \u2014 here\'s what I\'d fix', type: 'Thread', date: 'Mar 19, 2026', status: 'scheduled', engagement: '\u2014' },
-          { title: 'Quick take on the Hormozi podcast ep', type: 'Post', date: 'Mar 18, 2026', status: 'published', engagement: '384' },
-          { title: 'Unpopular opinion: strategy > hustle', type: 'Post', date: 'Mar 17, 2026', status: 'published', engagement: '1.8K' },
-          { title: 'Breakdown: How I structure advisory sessions', type: 'Thread', date: 'Mar 15, 2026', status: 'published', engagement: '926' },
-          { title: 'What founders get wrong about content', type: 'Post', date: 'Mar 21, 2026', status: 'scheduled', engagement: '\u2014' },
-        ],
-        listId: 'tw-content'
-      },
-      tiktok: {
-        content: [
-          { title: 'Day in my life as a strategic advisor', type: 'Video', date: 'Mar 19, 2026', status: 'scheduled', engagement: '\u2014' },
-          { title: 'Replying to @founder: your brand isn\'t your logo', type: 'Video', date: 'Mar 17, 2026', status: 'published', engagement: '4.7K' },
-          { title: '3 tools I use every single day', type: 'Video', date: 'Mar 15, 2026', status: 'published', engagement: '3.2K' },
-          { title: 'Workshop energy check', type: 'Video', date: 'Mar 13, 2026', status: 'published', engagement: '6.1K' },
-        ],
-        listId: 'tt-content'
-      },
-      linkedin: {
-        content: [
-          { title: 'Why the creative economy needs better infrastructure', type: 'Article', date: 'Mar 21, 2026', status: 'scheduled', engagement: '\u2014' },
-          { title: 'Lessons from advising 12 founders this quarter', type: 'Post', date: 'Mar 17, 2026', status: 'published', engagement: '528' },
-          { title: 'The difference between strategy and tactics', type: 'Post', date: 'Mar 14, 2026', status: 'published', engagement: '412' },
-          { title: 'Stamfordham partnership announcement', type: 'Post', date: 'Mar 12, 2026', status: 'published', engagement: '891' },
-        ],
-        listId: 'li-content'
-      }
+      instagram: { content: [], listId: 'ig-content' },
+      twitter:   { content: [], listId: 'tw-content' },
+      tiktok:    { content: [], listId: 'tt-content' },
+      linkedin:  { content: [], listId: 'li-content' },
     };
+
+    // Fallback placeholder data (shown while Metricool loads or if not configured)
+    const fallbackData = {
+      instagram: [
+        { title: 'Loading live data from Metricool...', type: 'Post', date: '', status: 'draft', engagement: '\u2014' }
+      ],
+      twitter: [
+        { title: 'Loading live data from Metricool...', type: 'Post', date: '', status: 'draft', engagement: '\u2014' }
+      ],
+      tiktok: [
+        { title: 'Loading live data from Metricool...', type: 'Video', date: '', status: 'draft', engagement: '\u2014' }
+      ],
+      linkedin: [
+        { title: 'Loading live data from Metricool...', type: 'Post', date: '', status: 'draft', engagement: '\u2014' }
+      ],
+    };
+
+    // Set fallback immediately
+    Object.keys(fallbackData).forEach(p => { platformData[p].content = fallbackData[p]; });
+
+    // Fetch live data from backend
+    async function loadLiveData() {
+      try {
+        const res = await fetch('/api/overview?days=30');
+        const json = await res.json();
+        if (json.data && json.data.posts) {
+          const posts = json.data.posts;
+          if (posts.instagram && posts.instagram.length) platformData.instagram.content = posts.instagram;
+          if (posts.twitter && posts.twitter.length)   platformData.twitter.content = posts.twitter;
+          if (posts.tiktok && posts.tiktok.length)     platformData.tiktok.content = posts.tiktok;
+          if (posts.linkedin && posts.linkedin.length)  platformData.linkedin.content = posts.linkedin;
+
+          // Re-render all platform lists
+          Object.keys(platformData).forEach(renderContent);
+
+          // Update analytics stats if aggregation data is available
+          if (json.data.aggregations) updateStatsFromAggregations(json.data.aggregations);
+
+          // Update charts if timeline data is available
+          if (json.data.timeline) updateChartsFromTimeline(json.data.timeline);
+
+          console.log('Imani: Live Metricool data loaded.');
+        }
+      } catch(e) {
+        console.log('Imani: Metricool not available, using dashboard placeholders.');
+      }
+    }
+
+    // Load platform-specific detail when navigating to a platform page
+    async function loadPlatformDetail(platform) {
+      try {
+        const res = await fetch('/api/platform/' + platform + '?days=30');
+        const json = await res.json();
+        if (json.data && json.data.posts && json.data.posts.length) {
+          platformData[platform].content = json.data.posts;
+          renderContent(platform);
+        }
+        // Update platform mini-stats if aggregation available
+        if (json.data && json.data.aggregation) {
+          updatePlatformStats(platform, json.data.aggregation);
+        }
+      } catch(e) { /* keep existing data */ }
+    }
+
+    function updateStatsFromAggregations(aggs) {
+      // Update the analytics overview cards with real aggregation data
+      let totalReach = 0, totalFollowers = 0, totalPosts = 0;
+      ['instagram', 'twitter', 'linkedin'].forEach(p => {
+        const a = aggs[p];
+        if (!a) return;
+        totalReach += (a.reach || a.impressions || 0);
+        totalFollowers += (a.followers || a.connections || 0);
+        totalPosts += (a.posts || a.tweets || 0);
+      });
+      if (totalReach) document.getElementById('a-reach').textContent = formatNum(totalReach);
+      if (totalFollowers) document.getElementById('a-fol').textContent = formatNum(totalFollowers);
+      if (totalPosts) document.getElementById('a-pub').textContent = totalPosts;
+    }
+
+    function updatePlatformStats(platform, agg) {
+      // Platform-specific mini-stat cards (the 4 boxes at top of each platform page)
+      // These use generic selectors; we update the first .mini-stat-value elements in the active panel
+      const panel = document.getElementById('panel-' + platform);
+      if (!panel || !agg) return;
+      const values = panel.querySelectorAll('.mini-stat-value');
+      if (values.length >= 4) {
+        if (agg.followers !== undefined) values[0].textContent = formatNum(agg.followers);
+        if (agg.engagement !== undefined) values[1].textContent = (agg.engagement * 100).toFixed(1) + '%';
+        if (agg.reach !== undefined || agg.impressions !== undefined) values[2].textContent = formatNum(agg.reach || agg.impressions || 0);
+        if (agg.posts !== undefined) values[3].textContent = agg.posts;
+      }
+    }
+
+    function updateChartsFromTimeline(timeline) {
+      // Update reach chart with real timeline data if available
+      if (window.reachChart && timeline.instagram_reach && timeline.instagram_reach.length) {
+        const labels = timeline.instagram_reach.map(d => d.label);
+        window.reachChart.data.labels = labels;
+        window.reachChart.data.datasets[0].data = timeline.instagram_reach.map(d => d.value);
+        if (timeline.twitter_impressions) {
+          window.reachChart.data.datasets[1].data = timeline.twitter_impressions.map(d => d.value);
+        }
+        if (timeline.linkedin_impressions) {
+          window.reachChart.data.datasets[3].data = timeline.linkedin_impressions.map(d => d.value);
+        }
+        window.reachChart.update();
+      }
+    }
+
+    function formatNum(n) {
+      if (n >= 1000000) return (n/1000000).toFixed(1) + 'M';
+      if (n >= 1000) return (n/1000).toFixed(1) + 'K';
+      return String(n);
+    }
+
+    // Kick off live data load
+    loadLiveData();
 
     // ===== NAVIGATION =====
     document.querySelectorAll('.nav-item').forEach(item => {
@@ -901,8 +987,13 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
         document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
         document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
         this.classList.add('active');
-        const panel = document.getElementById('panel-' + this.dataset.panel);
+        const panelName = this.dataset.panel;
+        const panel = document.getElementById('panel-' + panelName);
         if (panel) panel.classList.add('active');
+        // Load fresh platform data from Metricool when navigating
+        if (['instagram', 'twitter', 'tiktok', 'linkedin'].includes(panelName)) {
+          loadPlatformDetail(panelName);
+        }
       });
     });
 
@@ -1088,13 +1179,73 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
     });
 
     // ===== ANALYTICS TABS =====
+    // These start as placeholders and get updated when live data loads
     const analyticsData = {
-      all:       { reach: '52.1K', reachC: '+12% from last week', eng: '5.1%', engC: '+0.4% from last week', fol: '15.6K', folC: '+1,135 new followers', pub: '50', pubC: '19 scheduled' },
-      instagram: { reach: '12.3K', reachC: '+15% from last week', eng: '5.1%', engC: '+0.4% from last week', fol: '8.4K', folC: '+320 new followers', pub: '14', pubC: '6 scheduled' },
-      twitter:   { reach: '28.1K', reachC: '+22% from last week', eng: '3.8%', engC: '+0.2% from last week', fol: '3.2K', folC: '+180 new followers', pub: '22', pubC: '8 scheduled' },
-      tiktok:    { reach: '4.7K',  reachC: '+31% from last week', eng: '7.2%', engC: '+1.1% from last week', fol: '2.1K', folC: '+540 new followers', pub: '8',  pubC: '3 scheduled' },
-      linkedin:  { reach: '9.8K',  reachC: '+18% from last week', eng: '6.3%', engC: '+0.8% from last week', fol: '1.9K', folC: '+95 new followers',  pub: '6',  pubC: '2 scheduled' },
+      all:       { reach: '--', reachC: 'Loading from Metricool...', eng: '--', engC: '', fol: '--', folC: '', pub: '--', pubC: '' },
+      instagram: { reach: '--', reachC: 'Loading...', eng: '--', engC: '', fol: '--', folC: '', pub: '--', pubC: '' },
+      twitter:   { reach: '--', reachC: 'Loading...', eng: '--', engC: '', fol: '--', folC: '', pub: '--', pubC: '' },
+      tiktok:    { reach: '--', reachC: 'Loading...', eng: '--', engC: '', fol: '--', folC: '', pub: '--', pubC: '' },
+      linkedin:  { reach: '--', reachC: 'Loading...', eng: '--', engC: '', fol: '--', folC: '', pub: '--', pubC: '' },
     };
+
+    // Fetch real analytics data for each platform tab
+    async function loadAnalyticsData() {
+      try {
+        const res = await fetch('/api/overview?days=7');
+        const json = await res.json();
+        if (!json.data || !json.data.aggregations) return;
+        const aggs = json.data.aggregations;
+
+        // Map aggregation data to analytics tab format
+        ['instagram', 'twitter', 'linkedin'].forEach(p => {
+          const a = aggs[p];
+          if (!a) return;
+          analyticsData[p] = {
+            reach: formatNum(a.reach || a.impressions || 0),
+            reachC: 'Last 7 days',
+            eng: a.engagement !== undefined ? (a.engagement * 100).toFixed(1) + '%' : '--',
+            engC: 'Average engagement',
+            fol: formatNum(a.followers || a.connections || 0),
+            folC: 'Total followers',
+            pub: String(a.posts || a.tweets || 0),
+            pubC: 'This period',
+          };
+        });
+
+        // Calculate "all" totals
+        let tReach = 0, tFol = 0, tPub = 0;
+        ['instagram', 'twitter', 'linkedin'].forEach(p => {
+          const a = aggs[p];
+          if (!a) return;
+          tReach += (a.reach || a.impressions || 0);
+          tFol += (a.followers || a.connections || 0);
+          tPub += (a.posts || a.tweets || 0);
+        });
+        analyticsData.all = {
+          reach: formatNum(tReach), reachC: 'All platforms, last 7 days',
+          eng: '--', engC: 'Weighted average',
+          fol: formatNum(tFol), folC: 'Total across platforms',
+          pub: String(tPub), pubC: 'This period',
+        };
+
+        // Refresh active tab display
+        const activeTab = document.querySelector('.analytics-tab.active');
+        if (activeTab) {
+          const d = analyticsData[activeTab.dataset.tab];
+          if (d) {
+            document.getElementById('a-reach').textContent = d.reach;
+            document.getElementById('a-reach-c').textContent = d.reachC;
+            document.getElementById('a-eng').textContent = d.eng;
+            document.getElementById('a-eng-c').textContent = d.engC;
+            document.getElementById('a-fol').textContent = d.fol;
+            document.getElementById('a-fol-c').textContent = d.folC;
+            document.getElementById('a-pub').textContent = d.pub;
+            document.getElementById('a-pub-c').textContent = d.pubC;
+          }
+        }
+      } catch(e) { /* keep placeholders */ }
+    }
+    loadAnalyticsData();
 
     document.querySelectorAll('.analytics-tab').forEach(tab => {
       tab.addEventListener('click', function() {
@@ -1119,7 +1270,7 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
     Chart.defaults.color = chartColors.tick;
     Chart.defaults.borderColor = chartColors.grid;
 
-    new Chart(document.getElementById('chart-reach'), {
+    window.reachChart = new Chart(document.getElementById('chart-reach'), {
       type: 'line',
       data: {
         labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
@@ -1249,29 +1400,35 @@ async def health():
     return {
         "status": "alive",
         "agent": "Imani",
-        "phase": "Phase 2: Dashboard V2",
+        "phase": "Phase 3: Live Analytics",
         "tools": {
             "calendar": "connected" if calendar.is_connected() else "not configured",
             "sheets": "connected" if sheets.is_connected() else "not configured",
             "whatsapp": "configured" if os.getenv("TWILIO_ACCOUNT_SID") else "not configured",
             "voice": "configured" if os.getenv("OPENAI_API_KEY") else "not configured",
+            "metricool": "connected" if metricool.is_connected() else "not configured",
         }
     }
 
 
-def split_message(text, max_len=1500):
-    """Split long messages at paragraph breaks."""
-    if len(text) <= max_len:
-        return [text]
-    chunks = []
-    current = ""
-    for para in text.split("\n\n"):
-        if len(current) + len(para) + 2 > max_len:
-            if current:
-                chunks.append(current.strip())
-            current = para
-        else:
-            current += "\n\n" + para if current else para
-    if current:
-        chunks.append(current.strip())
-    return chunks if chunks else [text[:max_len]]
+# ============================================================
+# Metricool Analytics API (serves live data to the dashboard)
+# ============================================================
+@app.get("/api/overview")
+async def api_overview(days: int = 7):
+    """Dashboard overview: aggregations + timeline + recent posts for all platforms."""
+    if not metricool.is_connected():
+        return {"error": "Metricool not configured", "data": None}
+    data = await metricool.dashboard_overview(days=days)
+    return {"data": data}
+
+
+@app.get("/api/platform/{platform}")
+async def api_platform(platform: str, days: int = 30):
+    """Detailed data for a single platform page."""
+    if not metricool.is_connected():
+        return {"error": "Metricool not configured", "data": None}
+    if platform not in ("instagram", "twitter", "tiktok", "linkedin"):
+        return {"error": "Unknown platform", "data": None}
+    data = await metricool.platform_detail(platform, days=days)
+    return {"data": data}
