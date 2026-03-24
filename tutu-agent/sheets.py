@@ -149,6 +149,64 @@ class SheetsManager:
             print(f"Error reading calendar: {e}")
             return None
 
+    def get_full_calendar(self):
+        """Get the entire content calendar for the dashboard."""
+        if not self.service or not CALENDAR_SHEET_ID:
+            return []
+
+        try:
+            # First, get the header row to understand column layout
+            header_result = self.service.spreadsheets().values().get(
+                spreadsheetId=CALENDAR_SHEET_ID,
+                range="30-Day Calendar!A1:Z1"
+            ).execute()
+            headers = header_result.get("values", [[]])[0]
+            headers = [h.strip().lower() for h in headers]
+
+            # Then get all data rows
+            result = self.service.spreadsheets().values().get(
+                spreadsheetId=CALENDAR_SHEET_ID,
+                range="30-Day Calendar!A2:Z100"
+            ).execute()
+            rows = result.get("values", [])
+
+            calendar_items = []
+            for row in rows:
+                if not row or not any(cell.strip() for cell in row if cell):
+                    continue
+                item = {}
+                for i, header in enumerate(headers):
+                    item[header] = row[i].strip() if i < len(row) and row[i] else ""
+                calendar_items.append(item)
+            return calendar_items
+        except Exception as e:
+            print(f"Error reading full calendar: {e}")
+            return []
+
+    def get_upcoming_content(self, platform: str = None):
+        """Get upcoming/scheduled content, optionally filtered by platform."""
+        items = self.get_full_calendar()
+        if not items:
+            return []
+
+        today = datetime.now()
+        upcoming = []
+        for item in items:
+            # Normalize status
+            status = (item.get("status", "") or "").lower().strip()
+            # Include items that are scheduled, planned, draft, or not yet done
+            if status in ("published", "posted", "done", "complete"):
+                continue
+
+            # Filter by platform if specified
+            if platform:
+                channel = (item.get("channel", "") or item.get("platform", "")).lower()
+                if platform.lower() not in channel:
+                    continue
+
+            upcoming.append(item)
+        return upcoming
+
     # ============================================================
     # Metrics
     # ============================================================

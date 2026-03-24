@@ -183,6 +183,38 @@ class MetricoolClient:
             },
         }
 
+    async def instagram_profile(self) -> dict | None:
+        """Fetch Instagram profile/account data for follower count."""
+        data = await self._get("/stats/instagram/profile")
+        if data is None:
+            # Try alternative endpoints
+            data = await self._get("/stats/instagram/community")
+        return data if isinstance(data, dict) else None
+
+    def _compute_stats_from_posts(self, posts: list, reels: list = None) -> dict:
+        """Compute engagement stats from actual post data when aggregations are null."""
+        all_posts = list(posts or [])
+        if reels:
+            all_posts.extend(reels)
+
+        if not all_posts:
+            return {}
+
+        total_likes = sum(_safe_int(p.get("likes", 0)) for p in all_posts)
+        total_comments = sum(_safe_int(p.get("comments", 0)) for p in all_posts)
+        total_reach = sum(_safe_int(p.get("reach", 0)) for p in all_posts)
+        total_engagement = total_likes + total_comments
+        avg_engagement_rate = (total_engagement / total_reach * 100) if total_reach > 0 else 0
+
+        return {
+            "posts_count": len(all_posts),
+            "total_engagement": total_engagement,
+            "total_reach": total_reach,
+            "avg_engagement_rate": round(avg_engagement_rate, 1),
+            "total_likes": total_likes,
+            "total_comments": total_comments,
+        }
+
     async def platform_detail(self, platform: str, days: int = 30) -> dict:
         """Fetch detailed data for a single platform page."""
         if platform == "instagram":
@@ -190,8 +222,15 @@ class MetricoolClient:
             reels = await self.instagram_reels(days=days)
             stories = await self.instagram_stories(days=days)
             agg = await self.aggregations("Instagram")
+            computed = self._compute_stats_from_posts(posts, reels)
+            # Try to get follower count from profile if aggregation is null
+            if not agg:
+                profile = await self.instagram_profile()
+                if profile and isinstance(profile, dict):
+                    computed["followers"] = _safe_int(profile.get("followers", 0) or profile.get("followedBy", 0))
             return {
                 "aggregation": agg,
+                "computed_stats": computed,
                 "posts": _format_ig_posts(posts),
                 "reels": _format_ig_posts(reels),
                 "stories": _format_ig_stories(stories),
@@ -199,14 +238,17 @@ class MetricoolClient:
         elif platform == "twitter":
             posts = await self.twitter_posts(days=days)
             agg = await self.aggregations("Twitter")
-            return {"aggregation": agg, "posts": _format_tw_posts(posts)}
+            computed = self._compute_stats_from_posts(posts)
+            return {"aggregation": agg, "computed_stats": computed, "posts": _format_tw_posts(posts)}
         elif platform == "tiktok":
             posts = await self.tiktok_posts(days=days)
-            return {"posts": _format_tt_posts(posts)}
+            computed = self._compute_stats_from_posts(posts)
+            return {"computed_stats": computed, "posts": _format_tt_posts(posts)}
         elif platform == "linkedin":
             posts = await self.linkedin_posts(days=days)
             agg = await self.aggregations("LinkedIn")
-            return {"aggregation": agg, "posts": _format_li_posts(posts)}
+            computed = self._compute_stats_from_posts(posts)
+            return {"aggregation": agg, "computed_stats": computed, "posts": _format_li_posts(posts)}
         return {}
 
     async def close(self):
@@ -265,6 +307,23 @@ def _post_status(raw_date) -> str:
         return "published"
 
 
+def _extract_title(p: dict, fallback: str = "Untitled post") -> str:
+    """Try multiple field names to find a usable post title/caption."""
+    for field in ("caption", "text", "description", "message", "title", "name", "commentary"):
+        val = p.get(field)
+        if val and isinstance(val, str) and val.strip():
+            # Take first line, truncate to 80 chars
+            first_line = val.strip().split("\n")[0]
+            return first_line[:80] if len(first_line) > 80 else first_line
+    # If no caption found, generate a descriptive title from type + date
+    pub = p.get("published") or p.get("created") or p.get("date")
+    post_type = "Reel" if p.get("mediaType") == "VIDEO" or p.get("type") == "reel" else "Post"
+    date_str = _format_date(pub)
+    if date_str:
+        return f"{post_type} — {date_str}"
+    return fallback
+
+
 def _format_ig_posts(posts: list) -> list:
     out = []
     for p in posts[:20]:
@@ -272,7 +331,7 @@ def _format_ig_posts(posts: list) -> list:
         pub = p.get("published") or p.get("created") or p.get("date")
         post_type = "Reel" if p.get("mediaType") == "VIDEO" or p.get("type") == "reel" else "Post"
         out.append({
-            "title": _safe_str(p.get("caption", ""))[:80] or "Untitled post",
+            "title": _extract_title(p, "Untitled post"),
             "type": post_type,
             "date": _format_date(pub),
             "status": _post_status(pub),
@@ -310,7 +369,7 @@ def _format_tw_posts(posts: list) -> list:
         text = _safe_str(p.get("text", ""))
         is_thread = len(text) > 280 or p.get("type") == "thread"
         out.append({
-            "title": text[:80] or "Untitled tweet",
+            "title": _extract_title(p, "Untitled tweet"),
             "type": "Thread" if is_thread else "Post",
             "date": _format_date(pub),
             "status": _post_status(pub),
@@ -327,7 +386,7 @@ def _format_tt_posts(posts: list) -> list:
         views = _safe_int(p.get("videoViews", 0)) or _safe_int(p.get("views", 0))
         pub = p.get("published") or p.get("created") or p.get("date")
         out.append({
-            "title": _safe_str(p.get("caption", "") or p.get("description", ""))[:80] or "Untitled video",
+            "title": _extract_title(p, "Untitled video"),
             "type": "Video",
             "date": _format_date(pub),
             "status": _post_status(pub),
@@ -345,7 +404,7 @@ def _format_li_posts(posts: list) -> list:
         text = _safe_str(p.get("text", "") or p.get("commentary", ""))
         is_article = p.get("type") == "article" or len(text) > 500
         out.append({
-            "title": text[:80] or "Untitled post",
+            "title": _extract_title(p, "Untitled post"),
             "type": "Article" if is_article else "Post",
             "date": _format_date(pub),
             "status": _post_status(pub),
