@@ -611,10 +611,10 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
           </div>
           <div class="platform-body">
             <div class="platform-stats">
-              <div class="mini-stat"><div class="mini-stat-label">Followers</div><div class="mini-stat-value" style="color:var(--instagram)">8.4K</div><div class="mini-stat-change up">+320 this week</div></div>
-              <div class="mini-stat"><div class="mini-stat-label">Engagement</div><div class="mini-stat-value" style="color:var(--instagram)">5.1%</div><div class="mini-stat-change up">+0.4% vs last week</div></div>
-              <div class="mini-stat"><div class="mini-stat-label">Reach</div><div class="mini-stat-value" style="color:var(--instagram)">12.3K</div><div class="mini-stat-change up">+15% growth</div></div>
-              <div class="mini-stat"><div class="mini-stat-label">Posts This Month</div><div class="mini-stat-value" style="color:var(--instagram)">14</div><div class="mini-stat-change">6 scheduled</div></div>
+              <div class="mini-stat"><div class="mini-stat-label">Followers</div><div class="mini-stat-value" id="ig-followers" style="color:var(--instagram)">—</div><div class="mini-stat-change" id="ig-followers-note">Loading...</div></div>
+              <div class="mini-stat"><div class="mini-stat-label">Engagement</div><div class="mini-stat-value" id="ig-engagement" style="color:var(--instagram)">—</div><div class="mini-stat-change" id="ig-engagement-note">Loading...</div></div>
+              <div class="mini-stat"><div class="mini-stat-label">Reach</div><div class="mini-stat-value" id="ig-reach" style="color:var(--instagram)">—</div><div class="mini-stat-change" id="ig-reach-note">Last 30 days</div></div>
+              <div class="mini-stat"><div class="mini-stat-label">Posts This Month</div><div class="mini-stat-value" id="ig-posts" style="color:var(--instagram)">—</div><div class="mini-stat-change" id="ig-posts-note">Loading...</div></div>
             </div>
             <div class="content-section-title">Recent & Scheduled</div>
             <div class="content-list" id="ig-content"></div>
@@ -638,10 +638,10 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
           </div>
           <div class="platform-body">
             <div class="platform-stats">
-              <div class="mini-stat"><div class="mini-stat-label">Followers</div><div class="mini-stat-value" style="color:var(--twitter)">3.2K</div><div class="mini-stat-change up">+180 this week</div></div>
-              <div class="mini-stat"><div class="mini-stat-label">Engagement</div><div class="mini-stat-value" style="color:var(--twitter)">3.8%</div><div class="mini-stat-change up">+0.2% vs last week</div></div>
-              <div class="mini-stat"><div class="mini-stat-label">Impressions</div><div class="mini-stat-value" style="color:var(--twitter)">28.1K</div><div class="mini-stat-change up">+22% growth</div></div>
-              <div class="mini-stat"><div class="mini-stat-label">Posts This Month</div><div class="mini-stat-value" style="color:var(--twitter)">22</div><div class="mini-stat-change">8 scheduled</div></div>
+              <div class="mini-stat"><div class="mini-stat-label">Followers</div><div class="mini-stat-value" id="tw-followers" style="color:var(--twitter)">—</div><div class="mini-stat-change" id="tw-followers-note">Loading...</div></div>
+              <div class="mini-stat"><div class="mini-stat-label">Engagement</div><div class="mini-stat-value" id="tw-engagement" style="color:var(--twitter)">—</div><div class="mini-stat-change" id="tw-engagement-note">Loading...</div></div>
+              <div class="mini-stat"><div class="mini-stat-label">Impressions</div><div class="mini-stat-value" id="tw-reach" style="color:var(--twitter)">—</div><div class="mini-stat-change" id="tw-reach-note">Last 30 days</div></div>
+              <div class="mini-stat"><div class="mini-stat-label">Posts This Month</div><div class="mini-stat-value" id="tw-posts" style="color:var(--twitter)">—</div><div class="mini-stat-change" id="tw-posts-note">Loading...</div></div>
             </div>
             <div class="content-section-title">Recent & Scheduled</div>
             <div class="content-list" id="tw-content"></div>
@@ -665,10 +665,10 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
           </div>
           <div class="platform-body">
             <div class="platform-stats">
-              <div class="mini-stat"><div class="mini-stat-label">Followers</div><div class="mini-stat-value" style="color:var(--tiktok)">2.1K</div><div class="mini-stat-change up">+540 this week</div></div>
-              <div class="mini-stat"><div class="mini-stat-label">Avg Views</div><div class="mini-stat-value" style="color:var(--tiktok)">4.7K</div><div class="mini-stat-change up">+31% growth</div></div>
-              <div class="mini-stat"><div class="mini-stat-label">Engagement</div><div class="mini-stat-value" style="color:var(--tiktok)">7.2%</div><div class="mini-stat-change up">+1.1% vs last week</div></div>
-              <div class="mini-stat"><div class="mini-stat-label">Videos This Month</div><div class="mini-stat-value" style="color:var(--tiktok)">8</div><div class="mini-stat-change">3 scheduled</div></div>
+              <div class="mini-stat"><div class="mini-stat-label">Followers</div><div class="mini-stat-value" id="tt-followers" style="color:var(--tiktok)">—</div><div class="mini-stat-change" id="tt-followers-note">Loading...</div></div>
+              <div class="mini-stat"><div class="mini-stat-label">Avg Views</div><div class="mini-stat-value" id="tt-views" style="color:var(--tiktok)">—</div><div class="mini-stat-change" id="tt-views-note">Loading...</div></div>
+              <div class="mini-stat"><div class="mini-stat-label">Engagement</div><div class="mini-stat-value" id="tt-engagement" style="color:var(--tiktok)">—</div><div class="mini-stat-change" id="tt-engagement-note">Loading...</div></div>
+              <div class="mini-stat"><div class="mini-stat-label">Videos This Month</div><div class="mini-stat-value" id="tt-posts" style="color:var(--tiktok)">—</div><div class="mini-stat-change" id="tt-posts-note">Loading...</div></div>
             </div>
             <div class="content-section-title">Recent & Scheduled</div>
             <div class="content-list" id="tt-content"></div>
@@ -692,10 +692,10 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
           </div>
           <div class="platform-body">
             <div class="platform-stats">
-              <div class="mini-stat"><div class="mini-stat-label">Connections</div><div class="mini-stat-value" style="color:var(--linkedin)">1.9K</div><div class="mini-stat-change up">+95 this week</div></div>
-              <div class="mini-stat"><div class="mini-stat-label">Engagement</div><div class="mini-stat-value" style="color:var(--linkedin)">6.3%</div><div class="mini-stat-change up">+0.8% vs last week</div></div>
-              <div class="mini-stat"><div class="mini-stat-label">Impressions</div><div class="mini-stat-value" style="color:var(--linkedin)">9.8K</div><div class="mini-stat-change up">+18% growth</div></div>
-              <div class="mini-stat"><div class="mini-stat-label">Posts This Month</div><div class="mini-stat-value" style="color:var(--linkedin)">6</div><div class="mini-stat-change">2 scheduled</div></div>
+              <div class="mini-stat"><div class="mini-stat-label">Connections</div><div class="mini-stat-value" id="li-followers" style="color:var(--linkedin)">—</div><div class="mini-stat-change" id="li-followers-note">Loading...</div></div>
+              <div class="mini-stat"><div class="mini-stat-label">Engagement</div><div class="mini-stat-value" id="li-engagement" style="color:var(--linkedin)">—</div><div class="mini-stat-change" id="li-engagement-note">Loading...</div></div>
+              <div class="mini-stat"><div class="mini-stat-label">Impressions</div><div class="mini-stat-value" id="li-reach" style="color:var(--linkedin)">—</div><div class="mini-stat-change" id="li-reach-note">Last 30 days</div></div>
+              <div class="mini-stat"><div class="mini-stat-label">Posts This Month</div><div class="mini-stat-value" id="li-posts" style="color:var(--linkedin)">—</div><div class="mini-stat-change" id="li-posts-note">Loading...</div></div>
             </div>
             <div class="content-section-title">Recent & Scheduled</div>
             <div class="content-list" id="li-content"></div>
@@ -916,15 +916,52 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
       try {
         const res = await fetch('/api/platform/' + platform + '?days=30');
         const json = await res.json();
-        if (json.data && json.data.posts && json.data.posts.length) {
-          platformData[platform].content = json.data.posts;
+        if (json.data) {
+          // Merge posts + reels for Instagram content list
+          let allContent = [];
+          if (json.data.posts) allContent = allContent.concat(json.data.posts);
+          if (json.data.reels) allContent = allContent.concat(json.data.reels);
+          if (allContent.length) {
+            // Sort by date descending
+            allContent.sort((a, b) => new Date(b.date) - new Date(a.date));
+            platformData[platform].content = allContent;
+          }
+          renderContent(platform);
+
+          // Update stats from aggregation or computed_stats
+          if (json.data.aggregation) {
+            updatePlatformStatsFromAgg(platform, json.data.aggregation);
+          } else if (json.data.computed_stats) {
+            updatePlatformStatsFromComputed(platform, json.data.computed_stats);
+          }
+        }
+      } catch(e) { console.log('Error loading platform data:', e); }
+
+      // Also load calendar items for this platform
+      loadCalendarForPlatform(platform);
+    }
+
+    // Load content calendar from Google Sheets
+    async function loadCalendarForPlatform(platform) {
+      try {
+        const res = await fetch('/api/calendar?platform=' + platform);
+        const json = await res.json();
+        if (json.data && json.data.length) {
+          // Add scheduled items to the content list
+          const scheduled = json.data.map(item => ({
+            title: item.title || item.hook || 'Scheduled content',
+            type: item.content_type || 'Post',
+            date: item.date || '',
+            status: 'scheduled',
+            engagement: '\u2014',
+            from_calendar: true
+          }));
+          // Prepend scheduled items before published ones
+          const existing = platformData[platform].content.filter(c => !c.from_calendar);
+          platformData[platform].content = scheduled.concat(existing);
           renderContent(platform);
         }
-        // Update platform mini-stats if aggregation available
-        if (json.data && json.data.aggregation) {
-          updatePlatformStats(platform, json.data.aggregation);
-        }
-      } catch(e) { /* keep existing data */ }
+      } catch(e) { /* calendar not configured */ }
     }
 
     function updateStatsFromAggregations(aggs) {
@@ -942,18 +979,53 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
       if (totalPosts) document.getElementById('a-pub').textContent = totalPosts;
     }
 
-    function updatePlatformStats(platform, agg) {
-      // Platform-specific mini-stat cards (the 4 boxes at top of each platform page)
-      // These use generic selectors; we update the first .mini-stat-value elements in the active panel
-      const panel = document.getElementById('panel-' + platform);
-      if (!panel || !agg) return;
-      const values = panel.querySelectorAll('.mini-stat-value');
-      if (values.length >= 4) {
-        if (agg.followers !== undefined) values[0].textContent = formatNum(agg.followers);
-        if (agg.engagement !== undefined) values[1].textContent = (agg.engagement * 100).toFixed(1) + '%';
-        if (agg.reach !== undefined || agg.impressions !== undefined) values[2].textContent = formatNum(agg.reach || agg.impressions || 0);
-        if (agg.posts !== undefined) values[3].textContent = agg.posts;
+    function updatePlatformStatsFromAgg(platform, agg) {
+      // Update stats from Metricool aggregation data
+      const prefix = platform === 'instagram' ? 'ig' : platform === 'twitter' ? 'tw' : platform === 'tiktok' ? 'tt' : 'li';
+      const fEl = document.getElementById(prefix + '-followers');
+      const eEl = document.getElementById(prefix + '-engagement');
+      const rEl = document.getElementById(prefix + '-reach');
+      const pEl = document.getElementById(prefix + '-posts');
+      if (fEl && agg.followers !== undefined) fEl.textContent = formatNum(agg.followers);
+      if (eEl && agg.engagement !== undefined) eEl.textContent = (agg.engagement * 100).toFixed(1) + '%';
+      if (rEl) rEl.textContent = formatNum(agg.reach || agg.impressions || 0);
+      if (pEl && agg.posts !== undefined) pEl.textContent = agg.posts;
+      // Update notes
+      const fNote = document.getElementById(prefix + '-followers-note');
+      if (fNote) fNote.textContent = 'From Metricool';
+      const eNote = document.getElementById(prefix + '-engagement-note');
+      if (eNote) eNote.textContent = 'Average rate';
+    }
+
+    function updatePlatformStatsFromComputed(platform, stats) {
+      // Update stats computed from actual post data (fallback when aggregations are null)
+      const prefix = platform === 'instagram' ? 'ig' : platform === 'twitter' ? 'tw' : platform === 'tiktok' ? 'tt' : 'li';
+      const fEl = document.getElementById(prefix + '-followers');
+      const eEl = document.getElementById(prefix + '-engagement');
+      const rEl = document.getElementById(prefix + '-reach');
+      const pEl = document.getElementById(prefix + '-posts');
+      if (fEl && stats.followers) {
+        fEl.textContent = formatNum(stats.followers);
+        const fNote = document.getElementById(prefix + '-followers-note');
+        if (fNote) fNote.textContent = 'Current';
       }
+      if (eEl && stats.avg_engagement_rate !== undefined) {
+        eEl.textContent = stats.avg_engagement_rate + '%';
+        const eNote = document.getElementById(prefix + '-engagement-note');
+        if (eNote) eNote.textContent = 'Avg from ' + stats.posts_count + ' posts';
+      }
+      if (rEl && stats.total_reach) {
+        rEl.textContent = formatNum(stats.total_reach);
+      }
+      if (pEl && stats.posts_count) {
+        pEl.textContent = stats.posts_count;
+        const pNote = document.getElementById(prefix + '-posts-note');
+        if (pNote) pNote.textContent = 'Last 30 days';
+      }
+    }
+
+    function updatePlatformStats(platform, agg) {
+      updatePlatformStatsFromAgg(platform, agg);
     }
 
     function updateChartsFromTimeline(timeline) {
@@ -980,6 +1052,8 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
 
     // Kick off live data load
     loadLiveData();
+    // Also load detailed data for each platform (including computed stats)
+    ['instagram', 'twitter', 'tiktok', 'linkedin'].forEach(p => loadPlatformDetail(p));
 
     // ===== NAVIGATION =====
     document.querySelectorAll('.nav-item').forEach(item => {
@@ -1123,10 +1197,13 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
       data.content.forEach(item => {
         const row = document.createElement('div');
         row.className = 'content-row';
+        const isScheduled = item.status === 'scheduled' || item.from_calendar;
+        const statusClass = isScheduled ? 'status-scheduled' : 'status-' + item.status;
+        const calendarBadge = item.from_calendar ? ' <span style="color:var(--warning);font-size:11px;opacity:0.8">&#x1f4c5; from calendar</span>' : '';
         row.innerHTML =
-          '<div class="content-status status-' + item.status + '"></div>' +
+          '<div class="content-status ' + statusClass + '"></div>' +
           '<div class="content-info">' +
-            '<div class="content-title">' + item.title + '</div>' +
+            '<div class="content-title">' + item.title + calendarBadge + '</div>' +
             '<div class="content-meta">' + item.type + ' &middot; ' + item.date + ' &middot; <span style="text-transform:capitalize">' + item.status + '</span></div>' +
           '</div>' +
           '<div class="content-engagement">' +
@@ -1432,3 +1509,31 @@ async def api_platform(platform: str, days: int = 30):
         return {"error": "Unknown platform", "data": None}
     data = await metricool.platform_detail(platform, days=days)
     return {"data": data}
+
+
+@app.get("/api/calendar")
+async def api_calendar(platform: str = None):
+    """Serve upcoming content from the Google Sheets brand calendar."""
+    if not sheets.is_connected():
+        return {"error": "Google Sheets not configured", "data": []}
+    try:
+        items = sheets.get_upcoming_content(platform=platform)
+        # Normalize items into dashboard-friendly format
+        formatted = []
+        for item in items:
+            formatted.append({
+                "day": item.get("day", ""),
+                "date": item.get("date", ""),
+                "day_of_week": item.get("day of week", "") or item.get("day_of_week", ""),
+                "channel": item.get("channel", "") or item.get("platform", ""),
+                "content_type": item.get("content type", "") or item.get("content_type", "") or item.get("format", ""),
+                "title": item.get("title/topic", "") or item.get("title", "") or item.get("topic", ""),
+                "hook": item.get("hook/angle", "") or item.get("hook", ""),
+                "cta": item.get("cta", ""),
+                "status": item.get("status", "planned"),
+                "notes": item.get("notes", ""),
+            })
+        return {"data": formatted}
+    except Exception as e:
+        logger.error("Calendar API error: %s", e)
+        return {"error": str(e), "data": []}
