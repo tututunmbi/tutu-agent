@@ -441,6 +441,98 @@ TOOLS = [
         }
     },
     {
+        "name": "edit_calendar_entry",
+        "description": "Edit any field of a calendar entry by day number. Use when Tutu wants to change a title, hook, channel, notes, or any other field for a specific day in the brand calendar.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "day": {
+                    "type": "integer",
+                    "description": "Day number in the 30-day calendar (1-30)"
+                },
+                "updates": {
+                    "type": "object",
+                    "description": "Fields to update. Keys should match column headers like 'title / topic', 'hook / angle', 'primary channel', 'content type', 'cta', 'status', 'notes'. Example: {\"title / topic\": \"New Title\", \"status\": \"In Progress\"}"
+                }
+            },
+            "required": ["day", "updates"]
+        }
+    },
+    {
+        "name": "add_calendar_entry",
+        "description": "Add a new content entry to the brand calendar. Use when Tutu wants to schedule new content beyond the current 30 days, or add extra items.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "day": {"type": "string", "description": "Day number (e.g. '31')"},
+                "date": {"type": "string", "description": "Date (e.g. 'Apr 15')"},
+                "day_of_week": {"type": "string", "description": "Day of week (e.g. 'Tuesday')"},
+                "channel": {"type": "string", "description": "Primary channel: YouTube, Instagram, LinkedIn, Twitter/X, Memo, REST"},
+                "content_type": {"type": "string", "description": "Content type (e.g. 'IG Reel', 'YouTube - Publish', 'LinkedIn Post')"},
+                "title": {"type": "string", "description": "Title or topic for the content"},
+                "hook": {"type": "string", "description": "Hook or angle", "default": ""},
+                "cta": {"type": "string", "description": "Call to action", "default": ""},
+                "status": {"type": "string", "description": "Status: Planned, In Progress, Published, etc.", "default": "Planned"},
+                "notes": {"type": "string", "description": "Additional notes", "default": ""}
+            },
+            "required": ["channel", "content_type", "title"]
+        }
+    },
+    {
+        "name": "get_engagements",
+        "description": "Read recent entries from the engagement tracker spreadsheet. Use when Tutu asks to review past engagements, look up a client, or check patterns.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "search": {
+                    "type": "string",
+                    "description": "Optional search query to filter by client name, constraint, or notes. Leave empty to get all recent entries.",
+                    "default": ""
+                },
+                "limit": {
+                    "type": "integer",
+                    "description": "Max number of entries to return (default 20)",
+                    "default": 20
+                }
+            },
+            "required": []
+        }
+    },
+    {
+        "name": "add_content_idea",
+        "description": "Add a content idea to the Content Pipeline in the tracker spreadsheet. Use when Tutu mentions a content idea that should be saved for later.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "source": {"type": "string", "description": "Where the idea came from (e.g. 'Client debrief with X', 'Conversation with Imani')"},
+                "idea": {"type": "string", "description": "The content idea"},
+                "format": {"type": "string", "description": "Format: Video, Reel, Carousel, Thread, Memo, Article"},
+                "channel": {"type": "string", "description": "Target channel: YouTube, Instagram, LinkedIn, Twitter/X, Memo"},
+                "priority": {"type": "string", "description": "Priority: High, Medium, Low", "default": "Medium"}
+            },
+            "required": ["idea", "format", "channel"]
+        }
+    },
+    {
+        "name": "read_sheet_tab",
+        "description": "Read any tab from the brand calendar or tracker spreadsheet. Use to check content bank, channel strategy, weekly overview, month 1 metrics, or any other tab.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "source": {
+                    "type": "string",
+                    "description": "Which spreadsheet: 'calendar' for brand calendar, 'tracker' for engagement tracker",
+                    "enum": ["calendar", "tracker"]
+                },
+                "tab_name": {
+                    "type": "string",
+                    "description": "Name of the tab to read (e.g. 'Weekly Overview', 'Content Bank', 'Channel Strategy', 'Month 1 Metrics', 'Engagement Tracker', 'Content Pipeline')"
+                }
+            },
+            "required": ["source", "tab_name"]
+        }
+    },
+    {
         "name": "save_decision",
         "description": "Save a key decision, insight, or commitment to Imani's memory. Use when Tutu makes a significant decision, commits to something, or shares an important insight worth remembering.",
         "input_schema": {
@@ -803,7 +895,66 @@ class TutuAdvisor:
                     day=tool_input["day"],
                     status=tool_input["status"]
                 )
-                return json.dumps({"success": result})
+                return json.dumps(result)
+
+            elif tool_name == "edit_calendar_entry":
+                if not self.sheets or not self.sheets.is_connected():
+                    return json.dumps({"success": False, "error": "Google Sheets not connected."})
+                result = self.sheets.update_calendar_entry(
+                    day=tool_input["day"],
+                    updates=tool_input["updates"]
+                )
+                return json.dumps(result)
+
+            elif tool_name == "add_calendar_entry":
+                if not self.sheets or not self.sheets.is_connected():
+                    return json.dumps({"success": False, "error": "Google Sheets not connected."})
+                result = self.sheets.add_calendar_entry({
+                    "day": tool_input.get("day", ""),
+                    "date": tool_input.get("date", ""),
+                    "day of week": tool_input.get("day_of_week", ""),
+                    "primary channel": tool_input.get("channel", ""),
+                    "content type": tool_input.get("content_type", ""),
+                    "title / topic": tool_input.get("title", ""),
+                    "hook / angle": tool_input.get("hook", ""),
+                    "cta": tool_input.get("cta", ""),
+                    "status": tool_input.get("status", "Planned"),
+                    "notes": tool_input.get("notes", ""),
+                })
+                return json.dumps(result)
+
+            elif tool_name == "get_engagements":
+                if not self.sheets or not self.sheets.is_connected():
+                    return json.dumps({"success": False, "error": "Google Sheets not connected."})
+                search = tool_input.get("search", "")
+                if search:
+                    result = self.sheets.search_engagements(search)
+                else:
+                    result = self.sheets.get_engagements(limit=tool_input.get("limit", 20))
+                return json.dumps(result)
+
+            elif tool_name == "add_content_idea":
+                if not self.sheets or not self.sheets.is_connected():
+                    return json.dumps({"success": False, "error": "Google Sheets not connected."})
+                result = self.sheets.add_content_idea({
+                    "source": tool_input.get("source", "Conversation with Imani"),
+                    "idea": tool_input["idea"],
+                    "format": tool_input["format"],
+                    "channel": tool_input["channel"],
+                    "priority": tool_input.get("priority", "Medium"),
+                })
+                return json.dumps(result)
+
+            elif tool_name == "read_sheet_tab":
+                if not self.sheets or not self.sheets.is_connected():
+                    return json.dumps({"success": False, "error": "Google Sheets not connected."})
+                source = tool_input["source"]
+                tab = tool_input["tab_name"]
+                if source == "calendar":
+                    result = self.sheets.read_calendar_tab(tab)
+                else:
+                    result = self.sheets.read_tracker_tab(tab)
+                return json.dumps(result)
 
             # Memory tools
             elif tool_name == "save_decision":

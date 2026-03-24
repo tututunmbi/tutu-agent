@@ -15,7 +15,7 @@ from contextlib import asynccontextmanager
 
 from agent import TutuAdvisor
 from memory import ConversationMemory
-from sheets import SheetsManager
+from sheets import SheetsManager, CALENDAR_SHEET_ID, TRACKER_SHEET_ID
 from calendar_tool import CalendarManager
 from gmail import GmailManager
 from metricool import MetricoolClient
@@ -1484,7 +1484,12 @@ async def health():
             "whatsapp": "configured" if os.getenv("TWILIO_ACCOUNT_SID") else "not configured",
             "voice": "configured" if os.getenv("OPENAI_API_KEY") else "not configured",
             "metricool": "connected" if metricool.is_connected() else "not configured",
-        }
+        },
+        "sheets_service_account": sheets.get_service_account_email() if sheets.is_connected() else None,
+        "sheets_config": {
+            "calendar_sheet_id": CALENDAR_SHEET_ID[:8] + "..." if CALENDAR_SHEET_ID else "not set",
+            "tracker_sheet_id": TRACKER_SHEET_ID[:8] + "..." if TRACKER_SHEET_ID else "not set",
+        },
     }
 
 
