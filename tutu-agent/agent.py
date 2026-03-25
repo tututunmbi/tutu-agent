@@ -1163,9 +1163,9 @@ class TutuAdvisor:
                     return json.dumps({"success": False, "error": "Sub-agent system not initialized."})
                 result = await self.subagent_mgr.dispatch("content-creator", "create_carousel", {
                     "topic": tool_input["topic"],
-                    "angle": tool_input.get("angle", ""),
-                    "audience": tool_input.get("audience", "founders and creative professionals"),
-                    "slide_count": tool_input.get("slide_count", 7)
+                    "context": tool_input.get("angle", ""),
+                    "slides": tool_input.get("slide_count", 7),
+                    "platform": tool_input.get("platform", "instagram")
                 })
                 return json.dumps(result)
             elif tool_name == "repurpose_content":
@@ -1173,16 +1173,15 @@ class TutuAdvisor:
                     return json.dumps({"success": False, "error": "Sub-agent system not initialized."})
                 result = await self.subagent_mgr.dispatch("content-repurposer", "repurpose", {
                     "source_content": tool_input["source_content"],
-                    "target_formats": tool_input.get("target_formats", ["twitter_thread", "linkedin_post"]),
-                    "tone": tool_input.get("tone", "authoritative yet approachable")
+                    "target_platforms": tool_input.get("target_formats", ["twitter", "linkedin"]),
+                    "context": tool_input.get("tone", "")
                 })
                 return json.dumps(result)
             elif tool_name == "generate_analytics_digest":
                 if not self.subagent_mgr:
                     return json.dumps({"success": False, "error": "Sub-agent system not initialized."})
                 result = await self.subagent_mgr.dispatch("analytics-digest", "generate", {
-                    "period": tool_input.get("period", "weekly"),
-                    "focus": tool_input.get("focus", "engagement")
+                    "days": 7 if tool_input.get("period", "weekly") == "weekly" else 30 if tool_input.get("period") == "monthly" else 1
                 })
                 return json.dumps(result)
             elif tool_name == "manage_tracked_accounts":
