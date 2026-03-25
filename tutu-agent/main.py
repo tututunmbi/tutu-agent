@@ -19,6 +19,7 @@ from sheets import SheetsManager, CALENDAR_SHEET_ID, TRACKER_SHEET_ID
 from calendar_tool import CalendarManager
 from gmail import GmailManager
 from metricool import MetricoolClient
+from subagents import SubAgentManager
 from scheduler import setup_schedules
 
 logging.basicConfig(level=logging.INFO)
@@ -30,6 +31,7 @@ sheets = SheetsManager()
 calendar = CalendarManager()
 gmail = GmailManager()
 metricool = MetricoolClient()
+subagent_mgr = SubAgentManager(metricool_client=metricool)
 advisor = TutuAdvisor(memory=memory, sheets=sheets, calendar=calendar, gmail=gmail)
 scheduler = AsyncIOScheduler()
 
@@ -425,6 +427,65 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
       border-radius: var(--radius-full); font-size: 11px; font-weight: 600;
       text-transform: uppercase; letter-spacing: 0.3px; align-self: flex-start;
     }
+    .agent-badge.active {
+      background: rgba(52, 211, 153, 0.15); color: var(--success);
+    }
+    .agent-card.agent-active {
+      border-color: rgba(52, 211, 153, 0.3);
+    }
+    .agent-card.agent-active:hover {
+      border-color: rgba(52, 211, 153, 0.5);
+    }
+    .agent-status-dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: var(--text-muted); margin-left: auto;
+    }
+    .agent-status-dot.active {
+      background: var(--success);
+      box-shadow: 0 0 8px rgba(52, 211, 153, 0.4);
+    }
+    .agent-stats {
+      display: flex; gap: 12px; flex-wrap: wrap;
+    }
+    .agent-stat {
+      font-size: 12px; color: var(--text-secondary);
+    }
+    .agent-stat strong {
+      color: var(--text-primary);
+    }
+    .agent-actions {
+      display: flex; gap: 8px; margin-top: 4px;
+    }
+    .btn-sm {
+      padding: 6px 14px; font-size: 12px;
+    }
+    .btn-ghost {
+      background: transparent; color: var(--text-secondary);
+      border: 1px solid var(--border); border-radius: var(--radius-sm);
+      cursor: pointer; font-size: 13px; font-weight: 500;
+      padding: 8px 16px; transition: all 0.15s ease;
+    }
+    .btn-ghost:hover { color: var(--text-primary); border-color: var(--text-muted); }
+
+    /* Sub-agent result display */
+    .sa-result { background: var(--bg-elevated); border-radius: var(--radius-md); padding: 16px; margin-top: 12px; }
+    .sa-result h4 { color: var(--text-primary); font-size: 14px; margin-bottom: 8px; }
+    .sa-result pre { font-size: 12px; color: var(--text-secondary); white-space: pre-wrap; word-break: break-word; line-height: 1.6; max-height: 400px; overflow-y: auto; }
+    .sa-slide { background: var(--bg-surface); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 12px; margin-bottom: 8px; }
+    .sa-slide-num { font-size: 11px; font-weight: 600; color: var(--accent); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
+    .sa-slide-headline { font-size: 15px; font-weight: 600; color: var(--text-primary); margin-bottom: 4px; }
+    .sa-slide-body { font-size: 13px; color: var(--text-secondary); line-height: 1.5; }
+    .sa-slide-visual { font-size: 12px; color: var(--text-muted); font-style: italic; margin-top: 4px; }
+
+    .tracked-account {
+      display: flex; align-items: center; gap: 10px; padding: 8px 12px;
+      background: var(--bg-elevated); border-radius: var(--radius-sm); margin-bottom: 6px;
+    }
+    .tracked-account .ta-handle { flex: 1; font-size: 13px; color: var(--text-primary); font-weight: 500; }
+    .tracked-account .ta-platform { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
+    .tracked-account .ta-category { font-size: 11px; padding: 2px 8px; border-radius: var(--radius-full); background: var(--accent-subtle); color: var(--accent); }
+    .tracked-account .ta-remove { cursor: pointer; color: var(--text-muted); font-size: 16px; }
+    .tracked-account .ta-remove:hover { color: #ef4444; }
 
     /* ===== MODAL ===== */
     .modal-overlay {
@@ -796,37 +857,68 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
             </div>
           </div>
           <div class="agents-body">
-            <div class="agents-grid">
-              <div class="agent-card">
+            <div class="agents-grid" id="agents-grid">
+              <!-- Active Sub-Agents -->
+              <div class="agent-card agent-active" data-agent="content-repurposer">
                 <div class="agent-card-head">
                   <div class="agent-icon" style="background:var(--accent-subtle);color:var(--accent);">&#9998;</div>
-                  <div class="agent-name">Content Creator</div>
+                  <div class="agent-name">Content Repurposer</div>
+                  <div class="agent-status-dot active"></div>
                 </div>
-                <div class="agent-desc">Generates captions, scripts, and content ideas tailored to each platform and your audience.</div>
-                <div class="agent-badge">Coming Soon</div>
+                <div class="agent-desc">Takes YouTube content and generates platform-specific versions: IG carousels, LinkedIn posts, X threads, TikTok scripts, memo sections.</div>
+                <div class="agent-stats" id="repurposer-stats">
+                  <span class="agent-stat"><strong id="repurposer-produced">0</strong> items produced</span>
+                  <span class="agent-stat"><strong id="repurposer-notes">0</strong> style notes</span>
+                </div>
+                <div class="agent-badge active">Active</div>
+                <div class="agent-actions">
+                  <button class="btn btn-sm btn-accent" onclick="openRepurposeModal()">Repurpose Content</button>
+                </div>
               </div>
-              <div class="agent-card">
+
+              <div class="agent-card agent-active" data-agent="analytics-digest">
                 <div class="agent-card-head">
                   <div class="agent-icon" style="background:var(--instagram-bg);color:var(--instagram);">&#9783;</div>
-                  <div class="agent-name">Analytics Analyst</div>
+                  <div class="agent-name">Analytics Digest</div>
+                  <div class="agent-status-dot active"></div>
                 </div>
-                <div class="agent-desc">Deep dives into performance metrics, identifies trends, and surfaces actionable recommendations.</div>
-                <div class="agent-badge">Coming Soon</div>
+                <div class="agent-desc">Weekly intelligence briefing: performance analysis, competitor/inspiration tracking, hook study, content strategy recommendations.</div>
+                <div class="agent-stats" id="analytics-stats">
+                  <span class="agent-stat"><strong id="analytics-tracked">0</strong> accounts tracked</span>
+                  <span class="agent-stat"><strong id="analytics-digests">0</strong> digests</span>
+                </div>
+                <div class="agent-badge active">Active</div>
+                <div class="agent-actions">
+                  <button class="btn btn-sm btn-accent" onclick="generateDigest()">Generate Digest</button>
+                  <button class="btn btn-sm btn-ghost" onclick="openTrackedAccountsModal()">Manage Accounts</button>
+                </div>
               </div>
+
+              <div class="agent-card agent-active" data-agent="content-creator">
+                <div class="agent-card-head">
+                  <div class="agent-icon" style="background:var(--youtube-bg);color:var(--youtube);">&#9733;</div>
+                  <div class="agent-name">Content Creator</div>
+                  <div class="agent-status-dot active"></div>
+                </div>
+                <div class="agent-desc">Creates carousel drafts with slide-by-slide copy and visual direction. Canva integration coming. Learns from your feedback.</div>
+                <div class="agent-stats" id="creator-stats">
+                  <span class="agent-stat"><strong id="creator-drafts">0</strong> drafts</span>
+                  <span class="agent-stat"><strong id="creator-approved">0</strong> approved</span>
+                  <span class="agent-stat">Level <strong id="creator-level">1</strong>/4</span>
+                </div>
+                <div class="agent-badge active">Active — Draft Mode</div>
+                <div class="agent-actions">
+                  <button class="btn btn-sm btn-accent" onclick="openCarouselModal()">Create Carousel</button>
+                </div>
+              </div>
+
+              <!-- Future Sub-Agents -->
               <div class="agent-card">
                 <div class="agent-card-head">
-                  <div class="agent-icon" style="background:var(--twitter-bg);color:var(--twitter);">&#9734;</div>
-                  <div class="agent-name">Audience Specialist</div>
+                  <div class="agent-icon" style="background:rgba(52,211,153,0.12);color:var(--success);">&#10003;</div>
+                  <div class="agent-name">Trend Scout</div>
                 </div>
-                <div class="agent-desc">Analyzes audience demographics, sentiment, and suggests optimization strategies for growth.</div>
-                <div class="agent-badge">Coming Soon</div>
-              </div>
-              <div class="agent-card">
-                <div class="agent-card-head">
-                  <div class="agent-icon" style="background:var(--tiktok-bg);color:var(--tiktok);">&#9881;</div>
-                  <div class="agent-name">Campaign Manager</div>
-                </div>
-                <div class="agent-desc">Plans, schedules, and optimizes multi-platform content campaigns with clear milestones.</div>
+                <div class="agent-desc">Monitors trends across platforms and recommends timely content opportunities to ride the wave.</div>
                 <div class="agent-badge">Coming Soon</div>
               </div>
               <div class="agent-card">
@@ -839,14 +931,121 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
               </div>
               <div class="agent-card">
                 <div class="agent-card-head">
-                  <div class="agent-icon" style="background:rgba(52,211,153,0.12);color:var(--success);">&#10003;</div>
-                  <div class="agent-name">Trend Scout</div>
+                  <div class="agent-icon" style="background:var(--tiktok-bg);color:var(--tiktok);">&#9881;</div>
+                  <div class="agent-name">Campaign Manager</div>
                 </div>
-                <div class="agent-desc">Monitors trends across platforms and recommends timely content opportunities to ride the wave.</div>
+                <div class="agent-desc">Plans, schedules, and optimizes multi-platform content campaigns with clear milestones.</div>
                 <div class="agent-badge">Coming Soon</div>
               </div>
             </div>
           </div>
+        </div>
+      </div>
+
+      <!-- REPURPOSE MODAL -->
+      <div class="modal-overlay" id="repurpose-modal" style="display:none">
+        <div class="modal-box" style="max-width:600px">
+          <div class="modal-title">Repurpose Content</div>
+          <form id="repurpose-form" onsubmit="submitRepurpose(event)">
+            <div class="field">
+              <label class="field-label">Source Platform</label>
+              <select class="field-input" id="repurpose-source">
+                <option value="youtube">YouTube</option>
+                <option value="linkedin">LinkedIn</option>
+                <option value="memo">Memo / Newsletter</option>
+                <option value="instagram">Instagram</option>
+              </select>
+            </div>
+            <div class="field">
+              <label class="field-label">Content (paste transcript, script, or text)</label>
+              <textarea class="field-input" id="repurpose-content" rows="6" placeholder="Paste your YouTube transcript, LinkedIn post, memo text..." required style="resize:vertical;min-height:100px;font-family:inherit"></textarea>
+            </div>
+            <div class="field">
+              <label class="field-label">Additional Context (optional)</label>
+              <input type="text" class="field-input" id="repurpose-context" placeholder="e.g. Focus on the hiring framework, CTA to newsletter...">
+            </div>
+            <div class="modal-actions">
+              <button type="button" class="btn btn-ghost" onclick="closeRepurposeModal()">Cancel</button>
+              <button type="submit" class="btn btn-accent" id="repurpose-submit">Repurpose</button>
+            </div>
+          </form>
+          <div id="repurpose-results" style="display:none;margin-top:16px"></div>
+        </div>
+      </div>
+
+      <!-- CAROUSEL MODAL -->
+      <div class="modal-overlay" id="carousel-modal" style="display:none">
+        <div class="modal-box" style="max-width:600px">
+          <div class="modal-title">Create Carousel</div>
+          <form id="carousel-form" onsubmit="submitCarousel(event)">
+            <div class="field">
+              <label class="field-label">Topic</label>
+              <input type="text" class="field-input" id="carousel-topic" placeholder="e.g. 5 Signs Your Creative Business Needs Structure" required>
+            </div>
+            <div class="field">
+              <label class="field-label">Platform</label>
+              <select class="field-input" id="carousel-platform">
+                <option value="instagram">Instagram</option>
+                <option value="linkedin">LinkedIn</option>
+              </select>
+            </div>
+            <div class="field">
+              <label class="field-label">Number of Slides</label>
+              <select class="field-input" id="carousel-slides">
+                <option value="5">5 slides</option>
+                <option value="7">7 slides</option>
+                <option value="10">10 slides</option>
+                <option value="3">3 slides (quick)</option>
+              </select>
+            </div>
+            <div class="field">
+              <label class="field-label">Reference Content (optional)</label>
+              <textarea class="field-input" id="carousel-reference" rows="3" placeholder="Paste source material, notes, or transcript to draw from..." style="resize:vertical;font-family:inherit"></textarea>
+            </div>
+            <div class="modal-actions">
+              <button type="button" class="btn btn-ghost" onclick="closeCarouselModal()">Cancel</button>
+              <button type="submit" class="btn btn-accent" id="carousel-submit">Create Draft</button>
+            </div>
+          </form>
+          <div id="carousel-results" style="display:none;margin-top:16px"></div>
+        </div>
+      </div>
+
+      <!-- TRACKED ACCOUNTS MODAL -->
+      <div class="modal-overlay" id="accounts-modal" style="display:none">
+        <div class="modal-box" style="max-width:550px">
+          <div class="modal-title">Tracked Accounts</div>
+          <div id="accounts-list" style="margin-bottom:16px;max-height:300px;overflow-y:auto"></div>
+          <form id="accounts-form" onsubmit="addTrackedAccount(event)">
+            <div style="display:flex;gap:8px;align-items:end">
+              <div class="field" style="flex:1">
+                <label class="field-label">Platform</label>
+                <select class="field-input" id="account-platform">
+                  <option value="instagram">Instagram</option>
+                  <option value="linkedin">LinkedIn</option>
+                  <option value="youtube">YouTube</option>
+                  <option value="twitter">Twitter/X</option>
+                  <option value="tiktok">TikTok</option>
+                </select>
+              </div>
+              <div class="field" style="flex:2">
+                <label class="field-label">Handle</label>
+                <input type="text" class="field-input" id="account-handle" placeholder="@username" required>
+              </div>
+              <div class="field" style="flex:1">
+                <label class="field-label">Type</label>
+                <select class="field-input" id="account-category">
+                  <option value="inspiration">Inspiration</option>
+                  <option value="competitor">Competitor</option>
+                  <option value="industry_leader">Industry Leader</option>
+                </select>
+              </div>
+            </div>
+            <div class="modal-actions">
+              <button type="button" class="btn btn-ghost" onclick="closeAccountsModal()">Close</button>
+              <button type="submit" class="btn btn-accent">Add Account</button>
+            </div>
+          </form>
         </div>
       </div>
 
@@ -1447,6 +1646,227 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
         }
       }
     });
+
+    // ============================================================
+    // SUB-AGENTS FUNCTIONALITY
+    // ============================================================
+
+    // Load sub-agent status
+    async function loadSubAgentStatus() {
+      try {
+        const resp = await fetch('/api/subagents');
+        const data = await resp.json();
+        if (data.data) {
+          data.data.forEach(agent => {
+            if (agent.id === 'content-repurposer') {
+              document.getElementById('repurposer-produced').textContent = agent.stats.items_produced || 0;
+              document.getElementById('repurposer-notes').textContent = agent.stats.style_notes || 0;
+            } else if (agent.id === 'analytics-digest') {
+              document.getElementById('analytics-tracked').textContent = agent.stats.tracked_accounts || 0;
+              document.getElementById('analytics-digests').textContent = agent.stats.digests_produced || 0;
+            } else if (agent.id === 'content-creator') {
+              document.getElementById('creator-drafts').textContent = agent.stats.drafts_produced || 0;
+              document.getElementById('creator-approved').textContent = agent.stats.approved || 0;
+              document.getElementById('creator-level').textContent = agent.stats.delegation_level || 1;
+            }
+          });
+        }
+      } catch (e) { console.log('Sub-agent status load error:', e); }
+    }
+
+    // Repurpose Modal
+    function openRepurposeModal() {
+      document.getElementById('repurpose-modal').style.display = 'flex';
+      document.getElementById('repurpose-results').style.display = 'none';
+    }
+    function closeRepurposeModal() {
+      document.getElementById('repurpose-modal').style.display = 'none';
+    }
+    async function submitRepurpose(e) {
+      e.preventDefault();
+      const btn = document.getElementById('repurpose-submit');
+      btn.textContent = 'Generating...'; btn.disabled = true;
+      try {
+        const resp = await fetch('/api/subagents/content-repurposer/repurpose', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            source_content: document.getElementById('repurpose-content').value,
+            source_platform: document.getElementById('repurpose-source').value,
+            context: document.getElementById('repurpose-context').value,
+          })
+        });
+        const data = await resp.json();
+        const resultsDiv = document.getElementById('repurpose-results');
+        if (data.success && data.results) {
+          let html = '<div class="sa-result"><h4>Repurposed Content</h4>';
+          data.results.forEach(r => {
+            html += '<div class="sa-slide">';
+            html += '<div class="sa-slide-num">' + (r.platform || 'Output') + ' — ' + (r.content_type || '') + '</div>';
+            if (r.headline) html += '<div class="sa-slide-headline">' + r.headline + '</div>';
+            html += '<div class="sa-slide-body">' + (r.body || r.content || JSON.stringify(r)).replace(/\n/g, '<br>') + '</div>';
+            if (r.cta) html += '<div class="sa-slide-visual">CTA: ' + r.cta + '</div>';
+            if (r.hashtags && r.hashtags.length) html += '<div class="sa-slide-visual">' + r.hashtags.map(h => '#' + h).join(' ') + '</div>';
+            html += '</div>';
+          });
+          html += '</div>';
+          resultsDiv.innerHTML = html;
+        } else {
+          resultsDiv.innerHTML = '<div class="sa-result"><pre>' + JSON.stringify(data, null, 2) + '</pre></div>';
+        }
+        resultsDiv.style.display = 'block';
+        loadSubAgentStatus();
+      } catch (err) {
+        document.getElementById('repurpose-results').innerHTML = '<div class="sa-result"><pre>Error: ' + err.message + '</pre></div>';
+        document.getElementById('repurpose-results').style.display = 'block';
+      }
+      btn.textContent = 'Repurpose'; btn.disabled = false;
+    }
+
+    // Carousel Modal
+    function openCarouselModal() {
+      document.getElementById('carousel-modal').style.display = 'flex';
+      document.getElementById('carousel-results').style.display = 'none';
+    }
+    function closeCarouselModal() {
+      document.getElementById('carousel-modal').style.display = 'none';
+    }
+    async function submitCarousel(e) {
+      e.preventDefault();
+      const btn = document.getElementById('carousel-submit');
+      btn.textContent = 'Creating...'; btn.disabled = true;
+      try {
+        const resp = await fetch('/api/subagents/content-creator/create_carousel', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            topic: document.getElementById('carousel-topic').value,
+            platform: document.getElementById('carousel-platform').value,
+            slides: parseInt(document.getElementById('carousel-slides').value),
+            reference_content: document.getElementById('carousel-reference').value,
+          })
+        });
+        const data = await resp.json();
+        const resultsDiv = document.getElementById('carousel-results');
+        if (data.success && data.carousel) {
+          const c = data.carousel.carousel || data.carousel;
+          let html = '<div class="sa-result">';
+          html += '<h4>Carousel Draft — ' + (c.topic || data.carousel.topic || '') + '</h4>';
+          html += '<div style="font-size:12px;color:var(--text-muted);margin-bottom:12px">Draft ID: ' + data.draft_id + ' | Status: ' + data.status + '</div>';
+          if (c.slides) {
+            c.slides.forEach(s => {
+              html += '<div class="sa-slide">';
+              html += '<div class="sa-slide-num">Slide ' + s.slide_number + ' — ' + (s.type || 'content') + '</div>';
+              html += '<div class="sa-slide-headline">' + (s.headline || '') + '</div>';
+              if (s.body) html += '<div class="sa-slide-body">' + s.body.replace(/\n/g, '<br>') + '</div>';
+              if (s.subtext) html += '<div class="sa-slide-body">' + s.subtext + '</div>';
+              if (s.visual_direction) html += '<div class="sa-slide-visual">Visual: ' + s.visual_direction + '</div>';
+              html += '</div>';
+            });
+          }
+          if (c.caption) {
+            html += '<div class="sa-slide"><div class="sa-slide-num">Caption</div>';
+            html += '<div class="sa-slide-body">' + c.caption.replace(/\n/g, '<br>') + '</div></div>';
+          }
+          html += '</div>';
+          resultsDiv.innerHTML = html;
+        } else {
+          resultsDiv.innerHTML = '<div class="sa-result"><pre>' + JSON.stringify(data, null, 2) + '</pre></div>';
+        }
+        resultsDiv.style.display = 'block';
+        loadSubAgentStatus();
+      } catch (err) {
+        document.getElementById('carousel-results').innerHTML = '<div class="sa-result"><pre>Error: ' + err.message + '</pre></div>';
+        document.getElementById('carousel-results').style.display = 'block';
+      }
+      btn.textContent = 'Create Draft'; btn.disabled = false;
+    }
+
+    // Analytics Digest
+    async function generateDigest() {
+      const btn = event.target;
+      btn.textContent = 'Generating...'; btn.disabled = true;
+      try {
+        const resp = await fetch('/api/subagents/analytics-digest/generate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ days: 7 })
+        });
+        const data = await resp.json();
+        if (data.success && data.digest) {
+          const d = data.digest;
+          let msg = 'Weekly Digest Generated!\n\n';
+          msg += 'Summary: ' + (d.summary || 'See details below') + '\n\n';
+          if (d.recommendations) {
+            msg += 'Recommendations:\n';
+            d.recommendations.forEach((r, i) => {
+              msg += (i + 1) + '. ' + (typeof r === 'string' ? r : JSON.stringify(r)) + '\n';
+            });
+          }
+          alert(msg);
+        } else {
+          alert('Digest generation: ' + JSON.stringify(data));
+        }
+        loadSubAgentStatus();
+      } catch (err) { alert('Error: ' + err.message); }
+      btn.textContent = 'Generate Digest'; btn.disabled = false;
+    }
+
+    // Tracked Accounts Modal
+    function openTrackedAccountsModal() {
+      document.getElementById('accounts-modal').style.display = 'flex';
+      loadTrackedAccounts();
+    }
+    function closeAccountsModal() {
+      document.getElementById('accounts-modal').style.display = 'none';
+    }
+    async function loadTrackedAccounts() {
+      try {
+        const resp = await fetch('/api/subagents/analytics-digest/accounts');
+        const data = await resp.json();
+        const list = document.getElementById('accounts-list');
+        if (data.data && data.data.length > 0) {
+          list.innerHTML = data.data.map(a =>
+            '<div class="tracked-account">' +
+            '<span class="ta-platform">' + a.platform + '</span>' +
+            '<span class="ta-handle">@' + a.handle + '</span>' +
+            '<span class="ta-category">' + a.category + '</span>' +
+            '<span class="ta-remove" onclick="removeTrackedAccount(\'' + a.platform + '\',\'' + a.handle + '\')">&times;</span>' +
+            '</div>'
+          ).join('');
+        } else {
+          list.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text-muted);font-size:13px">No accounts tracked yet. Add competitor and inspiration accounts below.</div>';
+        }
+      } catch (e) { console.log('Load tracked accounts error:', e); }
+    }
+    async function addTrackedAccount(e) {
+      e.preventDefault();
+      const handle = document.getElementById('account-handle').value.replace('@', '');
+      await fetch('/api/subagents/analytics-digest/accounts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          platform: document.getElementById('account-platform').value,
+          handle: handle,
+          category: document.getElementById('account-category').value,
+        })
+      });
+      document.getElementById('account-handle').value = '';
+      loadTrackedAccounts();
+      loadSubAgentStatus();
+    }
+    async function removeTrackedAccount(platform, handle) {
+      await fetch('/api/subagents/analytics-digest/accounts', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ platform, handle })
+      });
+      loadTrackedAccounts();
+      loadSubAgentStatus();
+    }
+
+    // Load sub-agent status on page load
+    loadSubAgentStatus();
   </script>
 </body>
 </html>"""
@@ -1589,3 +2009,53 @@ async def api_calendar(platform: str = None):
     except Exception as e:
         logger.error("Calendar API error: %s", e)
         return {"error": str(e), "data": []}
+
+
+# ------------------------------------------------------------------
+# Sub-Agent API Endpoints
+# ------------------------------------------------------------------
+
+@app.get("/api/subagents")
+async def api_subagents():
+    """List all sub-agents and their status."""
+    return {"data": subagent_mgr.list_agents()}
+
+
+@app.post("/api/subagents/{agent_id}/{action}")
+async def api_subagent_action(agent_id: str, action: str, request: Request):
+    """Dispatch an action to a sub-agent."""
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    result = await subagent_mgr.dispatch(agent_id, action, body)
+    return result
+
+
+@app.get("/api/subagents/analytics-digest/accounts")
+async def api_tracked_accounts():
+    """List tracked competitor/inspiration accounts."""
+    return {"data": subagent_mgr.analytics.list_accounts()}
+
+
+@app.post("/api/subagents/analytics-digest/accounts")
+async def api_add_tracked_account(request: Request):
+    """Add a tracked account."""
+    body = await request.json()
+    result = subagent_mgr.analytics.add_account(
+        platform=body.get("platform", ""),
+        handle=body.get("handle", ""),
+        category=body.get("category", "inspiration"),
+    )
+    return result
+
+
+@app.delete("/api/subagents/analytics-digest/accounts")
+async def api_remove_tracked_account(request: Request):
+    """Remove a tracked account."""
+    body = await request.json()
+    result = subagent_mgr.analytics.remove_account(
+        platform=body.get("platform", ""),
+        handle=body.get("handle", ""),
+    )
+    return result
