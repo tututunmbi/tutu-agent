@@ -1349,4 +1349,3 @@ Use your tools to check the calendar and content schedule. Pull from recent conv
             prompt = f"Generate a {checkin_type} check-in for Tutu based on recent conversation history."
 
         return await self.chat(prompt, source="scheduler")
-"""
