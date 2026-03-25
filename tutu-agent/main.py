@@ -32,7 +32,7 @@ calendar = CalendarManager()
 gmail = GmailManager()
 metricool = MetricoolClient()
 subagent_mgr = SubAgentManager(metricool_client=metricool)
-advisor = TutuAdvisor(memory=memory, sheets=sheets, calendar=calendar, gmail=gmail)
+advisor = TutuAdvisor(memory=memory, sheets=sheets, calendar=calendar, gmail=gmail, subagent_mgr=subagent_mgr)
 scheduler = AsyncIOScheduler()
 
 
