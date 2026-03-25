@@ -94,6 +94,8 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
       --tiktok-bg: rgba(254, 44, 85, 0.12);
       --linkedin: #0A66C2;
       --linkedin-bg: rgba(10, 102, 194, 0.12);
+      --youtube: #FF0000;
+      --youtube-bg: rgba(255, 0, 0, 0.12);
       --success: #34D399;
       --warning: #FBBF24;
       --radius-sm: 8px;
@@ -530,6 +532,10 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
           <div class="platform-dot" style="background:var(--tiktok)"></div>
           <span>TikTok</span>
         </div>
+        <div class="nav-item" data-panel="youtube">
+          <div class="platform-dot" style="background:var(--youtube)"></div>
+          <span>YouTube</span>
+        </div>
         <div class="nav-item" data-panel="linkedin">
           <div class="platform-dot" style="background:var(--linkedin)"></div>
           <span>LinkedIn</span>
@@ -703,6 +709,33 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
         </div>
       </div>
 
+      <!-- YOUTUBE -->
+      <div class="panel" id="panel-youtube">
+        <div class="platform-page">
+          <div class="page-header">
+            <div class="page-header-row">
+              <div>
+                <div class="page-title" style="display:flex;align-items:center;gap:12px;">
+                  <span class="platform-dot" style="background:var(--youtube);width:10px;height:10px;"></span> YouTube
+                </div>
+                <div class="page-subtitle">Manage your YouTube videos, shorts, and channel growth</div>
+              </div>
+              <button class="btn btn-accent" onclick="openModal('youtube')">+ New Video</button>
+            </div>
+          </div>
+          <div class="platform-body">
+            <div class="platform-stats">
+              <div class="mini-stat"><div class="mini-stat-label">Subscribers</div><div class="mini-stat-value" id="yt-followers" style="color:var(--youtube)">—</div><div class="mini-stat-change" id="yt-followers-note">Loading...</div></div>
+              <div class="mini-stat"><div class="mini-stat-label">Engagement</div><div class="mini-stat-value" id="yt-engagement" style="color:var(--youtube)">—</div><div class="mini-stat-change" id="yt-engagement-note">Loading...</div></div>
+              <div class="mini-stat"><div class="mini-stat-label">Views</div><div class="mini-stat-value" id="yt-reach" style="color:var(--youtube)">—</div><div class="mini-stat-change" id="yt-reach-note">Last 30 days</div></div>
+              <div class="mini-stat"><div class="mini-stat-label">Videos This Month</div><div class="mini-stat-value" id="yt-posts" style="color:var(--youtube)">—</div><div class="mini-stat-change" id="yt-posts-note">Loading...</div></div>
+            </div>
+            <div class="content-section-title">Recent & Scheduled</div>
+            <div class="content-list" id="yt-content"></div>
+          </div>
+        </div>
+      </div>
+
       <!-- ANALYTICS -->
       <div class="panel" id="panel-analytics">
         <div class="analytics-page">
@@ -724,6 +757,7 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
               <button class="analytics-tab" data-tab="instagram">Instagram</button>
               <button class="analytics-tab" data-tab="twitter">Twitter / X</button>
               <button class="analytics-tab" data-tab="tiktok">TikTok</button>
+              <button class="analytics-tab" data-tab="youtube">YouTube</button>
               <button class="analytics-tab" data-tab="linkedin">LinkedIn</button>
             </div>
             <div class="analytics-overview">
@@ -861,6 +895,7 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
       instagram: { content: [], listId: 'ig-content' },
       twitter:   { content: [], listId: 'tw-content' },
       tiktok:    { content: [], listId: 'tt-content' },
+      youtube:   { content: [], listId: 'yt-content' },
       linkedin:  { content: [], listId: 'li-content' },
     };
 
@@ -873,6 +908,9 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
         { title: 'Loading live data from Metricool...', type: 'Post', date: '', status: 'draft', engagement: '\u2014' }
       ],
       tiktok: [
+        { title: 'Loading live data from Metricool...', type: 'Video', date: '', status: 'draft', engagement: '\u2014' }
+      ],
+      youtube: [
         { title: 'Loading live data from Metricool...', type: 'Video', date: '', status: 'draft', engagement: '\u2014' }
       ],
       linkedin: [
@@ -893,6 +931,7 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
           if (posts.instagram && posts.instagram.length) platformData.instagram.content = posts.instagram;
           if (posts.twitter && posts.twitter.length)   platformData.twitter.content = posts.twitter;
           if (posts.tiktok && posts.tiktok.length)     platformData.tiktok.content = posts.tiktok;
+          if (posts.youtube && posts.youtube.length)    platformData.youtube.content = posts.youtube;
           if (posts.linkedin && posts.linkedin.length)  platformData.linkedin.content = posts.linkedin;
 
           // Re-render all platform lists
@@ -967,12 +1006,12 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
     function updateStatsFromAggregations(aggs) {
       // Update the analytics overview cards with real aggregation data
       let totalReach = 0, totalFollowers = 0, totalPosts = 0;
-      ['instagram', 'twitter', 'linkedin'].forEach(p => {
+      ['instagram', 'twitter', 'youtube', 'linkedin'].forEach(p => {
         const a = aggs[p];
         if (!a) return;
-        totalReach += (a.reach || a.impressions || 0);
-        totalFollowers += (a.followers || a.connections || 0);
-        totalPosts += (a.posts || a.tweets || 0);
+        totalReach += (a.reach || a.impressions || a.views || 0);
+        totalFollowers += (a.followers || a.connections || a.subscribers || 0);
+        totalPosts += (a.posts || a.tweets || a.videos || 0);
       });
       if (totalReach) document.getElementById('a-reach').textContent = formatNum(totalReach);
       if (totalFollowers) document.getElementById('a-fol').textContent = formatNum(totalFollowers);
@@ -981,15 +1020,16 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
 
     function updatePlatformStatsFromAgg(platform, agg) {
       // Update stats from Metricool aggregation data
-      const prefix = platform === 'instagram' ? 'ig' : platform === 'twitter' ? 'tw' : platform === 'tiktok' ? 'tt' : 'li';
+      const prefixMap = { instagram: 'ig', twitter: 'tw', tiktok: 'tt', youtube: 'yt', linkedin: 'li' };
+      const prefix = prefixMap[platform] || platform;
       const fEl = document.getElementById(prefix + '-followers');
       const eEl = document.getElementById(prefix + '-engagement');
       const rEl = document.getElementById(prefix + '-reach');
       const pEl = document.getElementById(prefix + '-posts');
-      if (fEl && agg.followers !== undefined) fEl.textContent = formatNum(agg.followers);
+      if (fEl) fEl.textContent = formatNum(agg.followers || agg.subscribers || 0);
       if (eEl && agg.engagement !== undefined) eEl.textContent = (agg.engagement * 100).toFixed(1) + '%';
-      if (rEl) rEl.textContent = formatNum(agg.reach || agg.impressions || 0);
-      if (pEl && agg.posts !== undefined) pEl.textContent = agg.posts;
+      if (rEl) rEl.textContent = formatNum(agg.reach || agg.impressions || agg.views || 0);
+      if (pEl) pEl.textContent = agg.posts || agg.videos || 0;
       // Update notes
       const fNote = document.getElementById(prefix + '-followers-note');
       if (fNote) fNote.textContent = 'From Metricool';
@@ -999,7 +1039,8 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
 
     function updatePlatformStatsFromComputed(platform, stats) {
       // Update stats computed from actual post data (fallback when aggregations are null)
-      const prefix = platform === 'instagram' ? 'ig' : platform === 'twitter' ? 'tw' : platform === 'tiktok' ? 'tt' : 'li';
+      const prefixMap2 = { instagram: 'ig', twitter: 'tw', tiktok: 'tt', youtube: 'yt', linkedin: 'li' };
+      const prefix = prefixMap2[platform] || platform;
       const fEl = document.getElementById(prefix + '-followers');
       const eEl = document.getElementById(prefix + '-engagement');
       const rEl = document.getElementById(prefix + '-reach');
@@ -1037,8 +1078,11 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
         if (timeline.twitter_impressions) {
           window.reachChart.data.datasets[1].data = timeline.twitter_impressions.map(d => d.value);
         }
+        if (timeline.youtube_views) {
+          window.reachChart.data.datasets[3].data = timeline.youtube_views.map(d => d.value);
+        }
         if (timeline.linkedin_impressions) {
-          window.reachChart.data.datasets[3].data = timeline.linkedin_impressions.map(d => d.value);
+          window.reachChart.data.datasets[4].data = timeline.linkedin_impressions.map(d => d.value);
         }
         window.reachChart.update();
       }
@@ -1053,7 +1097,7 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
     // Kick off live data load
     loadLiveData();
     // Also load detailed data for each platform (including computed stats)
-    ['instagram', 'twitter', 'tiktok', 'linkedin'].forEach(p => loadPlatformDetail(p));
+    ['instagram', 'twitter', 'tiktok', 'youtube', 'linkedin'].forEach(p => loadPlatformDetail(p));
 
     // ===== NAVIGATION =====
     document.querySelectorAll('.nav-item').forEach(item => {
@@ -1065,7 +1109,7 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
         const panel = document.getElementById('panel-' + panelName);
         if (panel) panel.classList.add('active');
         // Load fresh platform data from Metricool when navigating
-        if (['instagram', 'twitter', 'tiktok', 'linkedin'].includes(panelName)) {
+        if (['instagram', 'twitter', 'tiktok', 'youtube', 'linkedin'].includes(panelName)) {
           loadPlatformDetail(panelName);
         }
       });
@@ -1223,7 +1267,7 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
     // ===== MODAL =====
     function openModal(platform) {
       document.getElementById('modal-platform').value = platform;
-      const names = { instagram: 'Instagram', twitter: 'Twitter / X', tiktok: 'TikTok', linkedin: 'LinkedIn' };
+      const names = { instagram: 'Instagram', twitter: 'Twitter / X', tiktok: 'TikTok', youtube: 'YouTube', linkedin: 'LinkedIn' };
       document.getElementById('modal-title').textContent = 'New ' + (names[platform] || '') + ' Content';
       document.getElementById('modal').classList.add('active');
     }
@@ -1262,6 +1306,7 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
       instagram: { reach: '--', reachC: 'Loading...', eng: '--', engC: '', fol: '--', folC: '', pub: '--', pubC: '' },
       twitter:   { reach: '--', reachC: 'Loading...', eng: '--', engC: '', fol: '--', folC: '', pub: '--', pubC: '' },
       tiktok:    { reach: '--', reachC: 'Loading...', eng: '--', engC: '', fol: '--', folC: '', pub: '--', pubC: '' },
+      youtube:   { reach: '--', reachC: 'Loading...', eng: '--', engC: '', fol: '--', folC: '', pub: '--', pubC: '' },
       linkedin:  { reach: '--', reachC: 'Loading...', eng: '--', engC: '', fol: '--', folC: '', pub: '--', pubC: '' },
     };
 
@@ -1274,29 +1319,29 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
         const aggs = json.data.aggregations;
 
         // Map aggregation data to analytics tab format
-        ['instagram', 'twitter', 'linkedin'].forEach(p => {
+        ['instagram', 'twitter', 'youtube', 'linkedin'].forEach(p => {
           const a = aggs[p];
           if (!a) return;
           analyticsData[p] = {
-            reach: formatNum(a.reach || a.impressions || 0),
+            reach: formatNum(a.reach || a.impressions || a.views || 0),
             reachC: 'Last 7 days',
             eng: a.engagement !== undefined ? (a.engagement * 100).toFixed(1) + '%' : '--',
             engC: 'Average engagement',
-            fol: formatNum(a.followers || a.connections || 0),
+            fol: formatNum(a.followers || a.connections || a.subscribers || 0),
             folC: 'Total followers',
-            pub: String(a.posts || a.tweets || 0),
+            pub: String(a.posts || a.tweets || a.videos || 0),
             pubC: 'This period',
           };
         });
 
         // Calculate "all" totals
         let tReach = 0, tFol = 0, tPub = 0;
-        ['instagram', 'twitter', 'linkedin'].forEach(p => {
+        ['instagram', 'twitter', 'youtube', 'linkedin'].forEach(p => {
           const a = aggs[p];
           if (!a) return;
-          tReach += (a.reach || a.impressions || 0);
-          tFol += (a.followers || a.connections || 0);
-          tPub += (a.posts || a.tweets || 0);
+          tReach += (a.reach || a.impressions || a.views || 0);
+          tFol += (a.followers || a.connections || a.subscribers || 0);
+          tPub += (a.posts || a.tweets || a.videos || 0);
         });
         analyticsData.all = {
           reach: formatNum(tReach), reachC: 'All platforms, last 7 days',
@@ -1355,6 +1400,7 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
           { label: 'Instagram', data: [1800,2200,1900,2800,2600,3100,2400], borderColor: '#E1306C', backgroundColor: 'rgba(225,48,108,0.05)', borderWidth: 2, tension: 0.4, fill: true, pointRadius: 3 },
           { label: 'Twitter', data: [3200,4100,3800,5200,4800,5100,4600], borderColor: '#1DA1F2', backgroundColor: 'rgba(29,161,242,0.05)', borderWidth: 2, tension: 0.4, fill: true, pointRadius: 3 },
           { label: 'TikTok', data: [800,1200,3200,1400,900,1100,2100], borderColor: '#FE2C55', backgroundColor: 'rgba(254,44,85,0.05)', borderWidth: 2, tension: 0.4, fill: true, pointRadius: 3 },
+          { label: 'YouTube', data: [500,800,600,1200,900,1100,700], borderColor: '#FF0000', backgroundColor: 'rgba(255,0,0,0.05)', borderWidth: 2, tension: 0.4, fill: true, pointRadius: 3 },
           { label: 'LinkedIn', data: [1200,1500,1300,1800,2100,1600,1400], borderColor: '#0A66C2', backgroundColor: 'rgba(10,102,194,0.05)', borderWidth: 2, tension: 0.4, fill: true, pointRadius: 3 },
         ]
       },
@@ -1371,8 +1417,8 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
     new Chart(document.getElementById('chart-platform'), {
       type: 'doughnut',
       data: {
-        labels: ['Instagram', 'Twitter / X', 'TikTok', 'LinkedIn'],
-        datasets: [{ data: [24,38,18,20], backgroundColor: ['#E1306C','#1DA1F2','#FE2C55','#0A66C2'], borderColor: '#18181C', borderWidth: 3 }]
+        labels: ['Instagram', 'Twitter / X', 'TikTok', 'YouTube', 'LinkedIn'],
+        datasets: [{ data: [22,32,16,14,16], backgroundColor: ['#E1306C','#1DA1F2','#FE2C55','#FF0000','#0A66C2'], borderColor: '#18181C', borderWidth: 3 }]
       },
       options: {
         responsive: true, maintainAspectRatio: false, cutout: '65%',
@@ -1388,6 +1434,7 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
           { label: 'Instagram', data: [120,180,150,220,200,280,190], backgroundColor: '#E1306C', borderRadius: 4 },
           { label: 'Twitter', data: [200,280,250,340,310,290,260], backgroundColor: '#1DA1F2', borderRadius: 4 },
           { label: 'TikTok', data: [80,120,420,140,90,110,200], backgroundColor: '#FE2C55', borderRadius: 4 },
+          { label: 'YouTube', data: [40,70,55,95,80,100,65], backgroundColor: '#FF0000', borderRadius: 4 },
           { label: 'LinkedIn', data: [60,90,75,110,130,85,70], backgroundColor: '#0A66C2', borderRadius: 4 },
         ]
       },
@@ -1510,7 +1557,7 @@ async def api_platform(platform: str, days: int = 30):
     """Detailed data for a single platform page."""
     if not metricool.is_connected():
         return {"error": "Metricool not configured", "data": None}
-    if platform not in ("instagram", "twitter", "tiktok", "linkedin"):
+    if platform not in ("instagram", "twitter", "tiktok", "youtube", "linkedin"):
         return {"error": "Unknown platform", "data": None}
     data = await metricool.platform_detail(platform, days=days)
     return {"data": data}

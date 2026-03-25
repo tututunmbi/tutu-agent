@@ -99,6 +99,14 @@ class MetricoolClient:
         return data if isinstance(data, list) else []
 
     # ------------------------------------------------------------------
+    # YouTube
+    # ------------------------------------------------------------------
+    async def youtube_posts(self, days: int = 30, sort: str = "published") -> list:
+        start, end = self._date_range(days)
+        data = await self._get("/stats/youtube/posts", {"start": start, "end": end, "sortcolumn": sort})
+        return data if isinstance(data, list) else []
+
+    # ------------------------------------------------------------------
     # LinkedIn
     # ------------------------------------------------------------------
     async def linkedin_posts(self, days: int = 30, sort: str = "likes") -> list:
@@ -152,34 +160,40 @@ class MetricoolClient:
         ig_agg = await self.aggregations("Instagram")
         tw_agg = await self.aggregations("Twitter")
         li_agg = await self.aggregations("LinkedIn")
+        yt_agg = await self.aggregations("Youtube")
 
         # Timeline data for charts
         ig_reach = await self.timeline("igImpressions", days)
         tw_impressions = await self.timeline("twImpressions", days)
         li_impressions = await self.timeline("inImpressions", days)
+        yt_views = await self.timeline("ytViews", days)
 
         # Recent posts
         ig_posts = await self.instagram_posts(days=days, sort="published")
         tw_posts = await self.twitter_posts(days=days, sort="created")
         tt_posts = await self.tiktok_posts(days=days)
         li_posts = await self.linkedin_posts(days=days, sort="likes")
+        yt_posts = await self.youtube_posts(days=days, sort="published")
 
         return {
             "aggregations": {
                 "instagram": ig_agg,
                 "twitter": tw_agg,
                 "linkedin": li_agg,
+                "youtube": yt_agg,
             },
             "timeline": {
                 "instagram_reach": _format_timeline(ig_reach),
                 "twitter_impressions": _format_timeline(tw_impressions),
                 "linkedin_impressions": _format_timeline(li_impressions),
+                "youtube_views": _format_timeline(yt_views),
             },
             "posts": {
                 "instagram": _format_ig_posts(ig_posts),
                 "twitter": _format_tw_posts(tw_posts),
                 "tiktok": _format_tt_posts(tt_posts),
                 "linkedin": _format_li_posts(li_posts),
+                "youtube": _format_yt_posts(yt_posts),
             },
         }
 
@@ -244,6 +258,11 @@ class MetricoolClient:
             posts = await self.tiktok_posts(days=days)
             computed = self._compute_stats_from_posts(posts)
             return {"computed_stats": computed, "posts": _format_tt_posts(posts)}
+        elif platform == "youtube":
+            posts = await self.youtube_posts(days=days)
+            agg = await self.aggregations("Youtube")
+            computed = self._compute_stats_from_posts(posts)
+            return {"aggregation": agg, "computed_stats": computed, "posts": _format_yt_posts(posts)}
         elif platform == "linkedin":
             posts = await self.linkedin_posts(days=days)
             agg = await self.aggregations("LinkedIn")
@@ -392,6 +411,27 @@ def _format_tt_posts(posts: list) -> list:
             "status": _post_status(pub),
             "engagement": _format_number(views),
             "views": views,
+        })
+    return out
+
+
+def _format_yt_posts(posts: list) -> list:
+    out = []
+    for p in posts[:20]:
+        views = _safe_int(p.get("views", 0)) or _safe_int(p.get("videoViews", 0))
+        likes = _safe_int(p.get("likes", 0))
+        comments = _safe_int(p.get("comments", 0))
+        engagement = likes + comments
+        pub = p.get("published") or p.get("created") or p.get("date")
+        out.append({
+            "title": _extract_title(p, "Untitled video"),
+            "type": "Video",
+            "date": _format_date(pub),
+            "status": _post_status(pub),
+            "engagement": _format_number(engagement),
+            "views": views,
+            "likes": likes,
+            "comments": comments,
         })
     return out
 
