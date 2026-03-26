@@ -158,13 +158,17 @@ You have a persistent day plan system. When you create a schedule or day plan fo
 6. If the day plan needs to change because new priorities came up, show Tutu the FULL updated plan so she can see what moved
 
 ## DAILY PLANNER PAGE — VISUAL SCHEDULE
-Tutu's dashboard now has a **Daily Planner** page with a visual time-blocked schedule. When you plan Tutu's day or she asks you to slot tasks:
-1. Use the `update_daily_planner` tool to push time slots, priorities, and tasks to the visual planner
+**CRITICAL RULE: EVERY time you create a day plan, schedule, or time-blocked agenda for Tutu, you MUST call the `update_daily_planner` tool. This is not optional. Do NOT just describe the plan in text — you MUST also push it to the dashboard.**
+
+Tutu's dashboard has a **Daily Planner** page with a visual time-blocked schedule, color-coded by priority category. When you plan Tutu's day or she asks you to slot tasks:
+1. ALWAYS call the `update_daily_planner` tool to push time slots, priorities, and tasks to the visual planner
 2. Time slots are in 30-min increments (e.g., "09:00", "09:30", "10:00"... up to "21:00")
-3. Priority categories map to her life areas: stamfordham, bddm, spiritual, impact, brand, financial, health, career, proficio
-4. Important tasks appear in a separate checklist on the planner page
-5. ALWAYS update the daily planner when you create or modify a day schedule — this is what Tutu sees visually
-6. The planner page also has a "Plan with Imani" button that sends her to chat with you — be ready for planning conversations
+3. Priority categories are editable but defaults include: stamfordham, bddm, spiritual, impact, brand, financial, health, career, proficio
+4. Each time slot can have a category — send slots as objects like {"task": "Deep work on proposal", "category": "stamfordham"} to color-code them on the dashboard
+5. Important tasks appear in a separate checklist on the planner page
+6. ALWAYS update the daily planner when you create or modify a day schedule — this is what Tutu sees visually
+7. The planner page also has a "Plan with Imani" button that sends her to chat with you — be ready for planning conversations
+8. If Tutu asks you to "plan my day", "schedule my day", "what should I do today", or anything involving time-blocking, you MUST call update_daily_planner
 
 ## ROUTINE TRACKER
 Tutu has morning, afternoon, and night routines on the Routines page. She can check items off as she completes them. When discussing accountability or habits, reference her routine completion and encourage consistency.
@@ -908,7 +912,7 @@ TOOLS = [
     },
     {
         "name": "update_daily_planner",
-        "description": "Update Tutu's daily planner with time-blocked tasks, priorities, and important tasks. Use this when planning her day, scheduling tasks, or when she asks you to slot something into her schedule. The planner has 30-min time slots from 06:00-21:00, priority categories (stamfordham, bddm, spiritual, impact, brand, financial, health, career, proficio), and an important tasks list.",
+        "description": "MANDATORY: Update Tutu's daily planner dashboard with time-blocked tasks, priorities, and important tasks. You MUST call this tool EVERY TIME you plan Tutu's day, schedule tasks, or create a time-blocked agenda. The planner has 30-min time slots from 06:00-21:00, editable priority categories, and an important tasks list. Slots can include a category for color-coding.",
         "input_schema": {
             "type": "object",
             "properties": {
@@ -918,7 +922,7 @@ TOOLS = [
                 },
                 "slots": {
                     "type": "object",
-                    "description": "Time slots to fill. Keys are times like '09:00', '09:30', etc. Values are task descriptions. Example: {'09:00': 'Deep work: Stamfordham proposal', '09:30': 'Deep work: Stamfordham proposal', '10:00': 'Client call with Sarah'}"
+                    "description": "Time slots to fill. Keys are times like '09:00', '09:30'. Values can be plain strings OR objects with {task, category}. Example: {'09:00': {'task': 'Deep work: Stamfordham proposal', 'category': 'stamfordham'}, '10:00': {'task': 'Client call', 'category': 'brand'}}. Categories: stamfordham, bddm, spiritual, impact, brand, financial, health, career, proficio (or any custom category Tutu has created)."
                 },
                 "priorities": {
                     "type": "object",

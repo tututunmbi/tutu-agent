@@ -533,9 +533,20 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
     .planner-schedule-header { padding:14px 20px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; }
     .planner-schedule-title { font-size:14px; font-weight:600; color:var(--text-primary); display:flex; align-items:center; gap:8px; }
     .planner-time-grid { }
-    .planner-slot { display:grid; grid-template-columns:72px 1fr; border-bottom:1px solid var(--border-subtle); min-height:44px; transition:background 0.15s; }
+    .planner-slot { display:grid; grid-template-columns:72px 1fr; border-bottom:1px solid var(--border-subtle); min-height:44px; transition:background 0.15s; border-left:3px solid transparent; }
     .planner-slot:last-child { border-bottom:none; }
     .planner-slot:hover { background:var(--bg-hover); }
+    .planner-slot[data-category="stamfordham"] { border-left-color:#E74C3C; }
+    .planner-slot[data-category="bddm"] { border-left-color:#3498DB; }
+    .planner-slot[data-category="spiritual"] { border-left-color:#ECF0F1; }
+    .planner-slot[data-category="impact"] { border-left-color:#27AE60; }
+    .planner-slot[data-category="brand"] { border-left-color:#2ECC71; }
+    .planner-slot[data-category="financial"] { border-left-color:#E91E63; }
+    .planner-slot[data-category="health"] { border-left-color:#FFC107; }
+    .planner-slot[data-category="career"] { border-left-color:#5DADE2; }
+    .planner-slot[data-category="proficio"] { border-left-color:#F0B27A; }
+    .planner-cat-select { background:var(--bg-card); border:1px solid var(--border-subtle); color:var(--text-muted); font-size:10px; border-radius:4px; padding:2px 4px; cursor:pointer; display:none; max-width:90px; }
+    .planner-slot.has-task .planner-cat-select { display:inline-block; }
     .planner-slot-time { padding:10px 16px; font-size:12px; font-weight:500; color:var(--text-muted); font-variant-numeric:tabular-nums; display:flex; align-items:flex-start; padding-top:12px; }
     .planner-slot-content { padding:8px 16px 8px 0; display:flex; align-items:center; gap:8px; min-height:28px; }
     .planner-slot-task { font-size:13px; color:var(--text-primary); flex:1; }
@@ -553,6 +564,16 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
     .planner-card-body { padding:16px 20px; }
     .priority-item { display:flex; align-items:center; gap:10px; padding:8px 0; border-bottom:1px solid var(--border-subtle); }
     .priority-item:last-child { border-bottom:none; }
+    .priority-item .pri-edit-label { background:transparent; border:none; color:var(--text-muted); font-size:11px; font-weight:600; width:100%; outline:none; font-family:inherit; }
+    .priority-item .pri-edit-label:focus { border-bottom:1px solid var(--accent); }
+    .priority-item .pri-edit-value { background:transparent; border:none; color:var(--text-primary); font-size:12px; width:100%; outline:none; font-family:inherit; }
+    .priority-item .pri-edit-value:focus { border-bottom:1px solid var(--accent); }
+    .priority-item .pri-color-dot { width:12px; height:12px; border-radius:50%; cursor:pointer; flex-shrink:0; border:2px solid transparent; }
+    .priority-item .pri-color-dot:hover { border-color:var(--text-primary); }
+    .priority-item .pri-remove { background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:12px; padding:2px 4px; opacity:0; transition:opacity 0.15s; }
+    .priority-item:hover .pri-remove { opacity:1; }
+    .pri-add-btn { background:none; border:1px dashed var(--border-subtle); color:var(--text-muted); font-size:11px; padding:6px 12px; border-radius:6px; cursor:pointer; width:100%; margin-top:8px; }
+    .pri-add-btn:hover { border-color:var(--accent); color:var(--accent); }
     .priority-color { width:4px; height:28px; border-radius:2px; flex-shrink:0; }
     .priority-label { font-size:12px; color:var(--text-secondary); flex:1; }
     .priority-task { font-size:13px; color:var(--text-primary); }
@@ -1078,16 +1099,7 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
               <div class="planner-sidebar">
                 <div class="planner-card">
                   <div class="planner-card-header">&#127919; Priorities</div>
-                  <div class="planner-card-body" id="planner-priorities">
-                    <div class="priority-item"><div class="priority-color" style="background:#E74C3C;"></div><div><div class="priority-label">Stamfordham Global</div><div class="priority-task" id="pri-stamfordham">—</div></div></div>
-                    <div class="priority-item"><div class="priority-color" style="background:#3498DB;"></div><div><div class="priority-label">BDDM Collective</div><div class="priority-task" id="pri-bddm">—</div></div></div>
-                    <div class="priority-item"><div class="priority-color" style="background:#ECF0F1;"></div><div><div class="priority-label">Spiritual / Personal Growth</div><div class="priority-task" id="pri-spiritual">—</div></div></div>
-                    <div class="priority-item"><div class="priority-color" style="background:#27AE60;"></div><div><div class="priority-label">Impact</div><div class="priority-task" id="pri-impact">—</div></div></div>
-                    <div class="priority-item"><div class="priority-color" style="background:#2ECC71;"></div><div><div class="priority-label">My Brand</div><div class="priority-task" id="pri-brand">—</div></div></div>
-                    <div class="priority-item"><div class="priority-color" style="background:#E91E63;"></div><div><div class="priority-label">Financial & Property</div><div class="priority-task" id="pri-financial">—</div></div></div>
-                    <div class="priority-item"><div class="priority-color" style="background:#FFC107;"></div><div><div class="priority-label">Health & Self-care</div><div class="priority-task" id="pri-health">—</div></div></div>
-                    <div class="priority-item"><div class="priority-color" style="background:#5DADE2;"></div><div><div class="priority-label">Career & Professional</div><div class="priority-task" id="pri-career">—</div></div></div>
-                    <div class="priority-item"><div class="priority-color" style="background:#F0B27A;"></div><div><div class="priority-label">Proficio</div><div class="priority-task" id="pri-proficio">—</div></div></div>
+                  <div class="planner-card-body" id="planner-priorities"><!-- JS fills dynamically -->
                   </div>
                 </div>
                 <div class="planner-card">
@@ -2137,12 +2149,29 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
           inp.dataset.time = time;
           inp.addEventListener('focus', function(){ this.placeholder = ''; });
           inp.addEventListener('blur', function(){ savePlannerSlot(this); });
+          const catSelect = document.createElement('select');
+          catSelect.className = 'planner-cat-select';
+          catSelect.dataset.time = time;
+          const defOpt = document.createElement('option');
+          defOpt.value = 'general';
+          defOpt.textContent = '--';
+          catSelect.appendChild(defOpt);
+          if (window._plannerCategories) {
+            window._plannerCategories.forEach(function(c) {
+              const opt = document.createElement('option');
+              opt.value = c.id;
+              opt.textContent = c.label;
+              catSelect.appendChild(opt);
+            });
+          }
+          catSelect.addEventListener('change', function(){ updateSlotCategory(this); });
           const removeBtn = document.createElement('button');
           removeBtn.className = 'planner-slot-remove';
           removeBtn.innerHTML = '&times;';
           removeBtn.title = 'Clear';
           removeBtn.addEventListener('click', function(){ clearPlannerSlot(this); });
           contentDiv.appendChild(inp);
+          contentDiv.appendChild(catSelect);
           contentDiv.appendChild(removeBtn);
           slot.appendChild(timeDiv);
           slot.appendChild(contentDiv);
@@ -2157,26 +2186,40 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
       try {
         const res = await fetch('/api/planner/' + dk);
         const data = await res.json();
-        document.querySelectorAll('.planner-slot-input').forEach(inp => {
+        document.querySelectorAll('.planner-slot').forEach(function(slot) {
+          const inp = slot.querySelector('.planner-slot-input');
+          const catSel = slot.querySelector('.planner-cat-select');
+          const removeBtn = slot.querySelector('.planner-slot-remove');
           inp.value = '';
           inp.placeholder = 'Click to add...';
-          inp.parentElement.querySelector('.planner-slot-remove').style.display = 'none';
+          removeBtn.style.display = 'none';
+          slot.classList.remove('has-task');
+          slot.removeAttribute('data-category');
+          if (catSel) catSel.value = 'general';
         });
         if (data.slots) {
-          Object.entries(data.slots).forEach(([time, task]) => {
+          Object.entries(data.slots).forEach(function([time, val]) {
+            var task, category;
+            if (typeof val === 'object' && val !== null) {
+              task = val.task || '';
+              category = val.category || 'general';
+            } else {
+              task = val || '';
+              category = 'general';
+            }
             const inp = document.querySelector('.planner-slot-input[data-time="' + time + '"]');
             if (inp && task) {
+              const slot = inp.closest('.planner-slot');
               inp.value = task;
+              slot.classList.add('has-task');
+              slot.dataset.category = category;
               inp.parentElement.querySelector('.planner-slot-remove').style.display = '';
+              const catSel = inp.parentElement.querySelector('.planner-cat-select');
+              if (catSel) catSel.value = category;
             }
           });
         }
-        if (data.priorities) {
-          Object.entries(data.priorities).forEach(([key, val]) => {
-            const el = document.getElementById('pri-' + key);
-            if (el) el.textContent = val || '\u2014';
-          });
-        }
+        renderPriorities(data.priorities || {});
         renderImportantTasks(data.tasks || []);
         highlightCurrentSlot();
       } catch(e) { console.log('Planner load skipped:', e); }
@@ -2197,11 +2240,32 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
       const time = inp.dataset.time;
       const task = inp.value.trim();
       const dk = dateKey(plannerDate);
+      const slot = inp.closest('.planner-slot');
+      const catSel = inp.parentElement.querySelector('.planner-cat-select');
+      const category = catSel ? catSel.value : 'general';
       inp.parentElement.querySelector('.planner-slot-remove').style.display = task ? '' : 'none';
+      if (task) { slot.classList.add('has-task'); } else { slot.classList.remove('has-task'); slot.removeAttribute('data-category'); }
       try {
         await fetch('/api/planner/' + dk + '/slot', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ time, task })
+          body: JSON.stringify({ time, task, category })
+        });
+      } catch(e) {}
+    }
+
+    async function updateSlotCategory(sel) {
+      const time = sel.dataset.time;
+      const category = sel.value;
+      const slot = sel.closest('.planner-slot');
+      slot.dataset.category = category;
+      const inp = slot.querySelector('.planner-slot-input');
+      const task = inp.value.trim();
+      if (!task) return;
+      const dk = dateKey(plannerDate);
+      try {
+        await fetch('/api/planner/' + dk + '/slot', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ time, task, category })
         });
       } catch(e) {}
     }
@@ -2210,6 +2274,9 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
       const inp = btn.parentElement.querySelector('.planner-slot-input');
       inp.value = '';
       btn.style.display = 'none';
+      const slot = inp.closest('.planner-slot');
+      slot.classList.remove('has-task');
+      slot.removeAttribute('data-category');
       await savePlannerSlot(inp);
     }
 
@@ -2253,8 +2320,107 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
       chatInput.focus();
     }
 
-    buildTimeGrid();
-    loadPlanner();
+    window._plannerCategories = [];
+    const defaultCatColors = ['#E74C3C','#3498DB','#ECF0F1','#27AE60','#2ECC71','#E91E63','#FFC107','#5DADE2','#F0B27A','#9B59B6','#1ABC9C','#E67E22'];
+
+    async function loadCategories() {
+      try {
+        const res = await fetch('/api/planner/categories');
+        const data = await res.json();
+        window._plannerCategories = data.categories || [];
+        buildTimeGrid();
+        updateCategoryCSS();
+      } catch(e) { console.log('Categories load failed:', e); }
+    }
+
+    function updateCategoryCSS() {
+      var style = document.getElementById('dynamic-cat-css');
+      if (!style) { style = document.createElement('style'); style.id = 'dynamic-cat-css'; document.head.appendChild(style); }
+      var css = '';
+      window._plannerCategories.forEach(function(c) {
+        css += '.planner-slot[data-category="' + c.id + '"] { border-left-color:' + c.color + '; }\n';
+      });
+      style.textContent = css;
+    }
+
+    function renderPriorities(savedPriorities) {
+      const container = document.getElementById('planner-priorities');
+      container.innerHTML = '';
+      var cats = window._plannerCategories;
+      if (!cats || cats.length === 0) return;
+      cats.forEach(function(cat) {
+        var item = document.createElement('div');
+        item.className = 'priority-item';
+        item.dataset.catId = cat.id;
+        var colorDot = document.createElement('input');
+        colorDot.type = 'color';
+        colorDot.className = 'pri-color-dot';
+        colorDot.value = cat.color;
+        colorDot.title = 'Change color';
+        colorDot.style.cssText = 'width:24px;height:24px;padding:0;border:none;cursor:pointer;background:transparent;';
+        colorDot.addEventListener('change', function() { cat.color = this.value; saveCategories(); updateCategoryCSS(); });
+        var textDiv = document.createElement('div');
+        textDiv.style.flex = '1';
+        var labelInp = document.createElement('input');
+        labelInp.className = 'pri-edit-label';
+        labelInp.value = cat.label;
+        labelInp.addEventListener('blur', function() { cat.label = this.value.trim(); saveCategories(); });
+        var valInp = document.createElement('input');
+        valInp.className = 'pri-edit-value';
+        valInp.placeholder = 'Today\u2019s focus...';
+        valInp.value = savedPriorities[cat.id] || '';
+        valInp.addEventListener('blur', function() { savePriority(cat.id, this.value.trim()); });
+        textDiv.appendChild(labelInp);
+        textDiv.appendChild(valInp);
+        var removeBtn = document.createElement('button');
+        removeBtn.className = 'pri-remove';
+        removeBtn.innerHTML = '&times;';
+        removeBtn.title = 'Remove category';
+        removeBtn.addEventListener('click', function() {
+          window._plannerCategories = window._plannerCategories.filter(function(c) { return c.id !== cat.id; });
+          saveCategories();
+          loadPlanner();
+        });
+        item.appendChild(colorDot);
+        item.appendChild(textDiv);
+        item.appendChild(removeBtn);
+        container.appendChild(item);
+      });
+      var addBtn = document.createElement('button');
+      addBtn.className = 'pri-add-btn';
+      addBtn.textContent = '+ Add Category';
+      addBtn.addEventListener('click', function() {
+        var newId = 'cat_' + Date.now();
+        var colorIdx = window._plannerCategories.length % defaultCatColors.length;
+        window._plannerCategories.push({ id: newId, label: 'New Category', color: defaultCatColors[colorIdx], sort_order: window._plannerCategories.length });
+        saveCategories();
+        loadPlanner();
+      });
+      container.appendChild(addBtn);
+    }
+
+    async function saveCategories() {
+      try {
+        await fetch('/api/planner/categories', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ categories: window._plannerCategories })
+        });
+        buildTimeGrid();
+        updateCategoryCSS();
+      } catch(e) {}
+    }
+
+    async function savePriority(catId, value) {
+      var dk = dateKey(plannerDate);
+      try {
+        await fetch('/api/planner/' + dk + '/priority', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ category: catId, value: value })
+        });
+      } catch(e) {}
+    }
+
+    loadCategories().then(function() { loadPlanner(); });
     setInterval(highlightCurrentSlot, 60000);
 
     // ===== ROUTINES =====
@@ -2596,7 +2762,8 @@ PLANNER_DB = os.getenv("PLANNER_DB_PATH", "planner.db")
 
 def _planner_db():
     conn = sqlite3.connect(PLANNER_DB)
-    conn.execute("CREATE TABLE IF NOT EXISTS planner_slots (date TEXT, time TEXT, task TEXT, PRIMARY KEY(date, time))")
+    conn.execute("CREATE TABLE IF NOT EXISTS planner_slots (date TEXT, time TEXT, task TEXT, category TEXT DEFAULT 'general', PRIMARY KEY(date, time))")
+    conn.execute("CREATE TABLE IF NOT EXISTS planner_categories (id TEXT PRIMARY KEY, label TEXT, color TEXT, sort_order INTEGER DEFAULT 0)")
     conn.execute("CREATE TABLE IF NOT EXISTS planner_tasks (id INTEGER PRIMARY KEY AUTOINCREMENT, date TEXT, text TEXT, done INTEGER DEFAULT 0, sort_order INTEGER DEFAULT 0)")
     conn.execute("CREATE TABLE IF NOT EXISTS planner_priorities (date TEXT, category TEXT, value TEXT, PRIMARY KEY(date, category))")
     conn.execute("CREATE TABLE IF NOT EXISTS routine_templates (period TEXT, name TEXT, sort_order INTEGER DEFAULT 0)")
@@ -2624,12 +2791,49 @@ def _init_routine_defaults(conn, date_str, period):
     conn.commit()
 
 
+
+@app.get("/api/planner/categories")
+async def api_get_categories():
+    conn = _planner_db()
+    cats = []
+    for row in conn.execute("SELECT id, label, color, sort_order FROM planner_categories ORDER BY sort_order, id"):
+        cats.append({"id": row["id"], "label": row["label"], "color": row["color"], "sort_order": row["sort_order"]})
+    conn.close()
+    if not cats:
+        cats = [
+            {"id": "stamfordham", "label": "Stamfordham Global", "color": "#E74C3C", "sort_order": 0},
+            {"id": "bddm", "label": "BDDM Collective", "color": "#3498DB", "sort_order": 1},
+            {"id": "spiritual", "label": "Spiritual / Personal Growth", "color": "#ECF0F1", "sort_order": 2},
+            {"id": "impact", "label": "Impact", "color": "#27AE60", "sort_order": 3},
+            {"id": "brand", "label": "My Brand", "color": "#2ECC71", "sort_order": 4},
+            {"id": "financial", "label": "Financial & Property", "color": "#E91E63", "sort_order": 5},
+            {"id": "health", "label": "Health & Self-care", "color": "#FFC107", "sort_order": 6},
+            {"id": "career", "label": "Career & Professional", "color": "#5DADE2", "sort_order": 7},
+            {"id": "proficio", "label": "Proficio", "color": "#F0B27A", "sort_order": 8},
+        ]
+    return {"categories": cats}
+
+
+@app.post("/api/planner/categories")
+async def api_save_categories(request: Request):
+    body = await request.json()
+    cats = body.get("categories", [])
+    conn = _planner_db()
+    conn.execute("DELETE FROM planner_categories")
+    for i, c in enumerate(cats):
+        conn.execute("INSERT INTO planner_categories (id, label, color, sort_order) VALUES (?,?,?,?)",
+                     (c.get("id", ""), c.get("label", ""), c.get("color", "#888"), i))
+    conn.commit()
+    conn.close()
+    return {"ok": True}
+
+
 @app.get("/api/planner/{date}")
 async def api_get_planner(date: str):
     conn = _planner_db()
     slots = {}
-    for row in conn.execute("SELECT time, task FROM planner_slots WHERE date=?", (date,)):
-        slots[row["time"]] = row["task"]
+    for row in conn.execute("SELECT time, task, category FROM planner_slots WHERE date=?", (date,)):
+        slots[row["time"]] = {"task": row["task"], "category": row["category"] or "general"}
     priorities = {}
     for row in conn.execute("SELECT category, value FROM planner_priorities WHERE date=?", (date,)):
         priorities[row["category"]] = row["value"]
@@ -2645,9 +2849,10 @@ async def api_set_planner_slot(date: str, request: Request):
     body = await request.json()
     time = body.get("time", "")
     task = body.get("task", "").strip()
+    category = body.get("category", "general")
     conn = _planner_db()
     if task:
-        conn.execute("INSERT OR REPLACE INTO planner_slots (date, time, task) VALUES (?,?,?)", (date, time, task))
+        conn.execute("INSERT OR REPLACE INTO planner_slots (date, time, task, category) VALUES (?,?,?,?)", (date, time, task, category))
     else:
         conn.execute("DELETE FROM planner_slots WHERE date=? AND time=?", (date, time))
     conn.commit()
@@ -2698,9 +2903,15 @@ async def api_bulk_planner(date: str, request: Request):
     body = await request.json()
     conn = _planner_db()
     if "slots" in body:
-        for time, task in body["slots"].items():
+        for time, val in body["slots"].items():
+            if isinstance(val, dict):
+                task = val.get("task", "").strip()
+                category = val.get("category", "general")
+            else:
+                task = str(val).strip() if val else ""
+                category = "general"
             if task:
-                conn.execute("INSERT OR REPLACE INTO planner_slots (date, time, task) VALUES (?,?,?)", (date, time, task))
+                conn.execute("INSERT OR REPLACE INTO planner_slots (date, time, task, category) VALUES (?,?,?,?)", (date, time, task, category))
             else:
                 conn.execute("DELETE FROM planner_slots WHERE date=? AND time=?", (date, time))
     if "priorities" in body:
