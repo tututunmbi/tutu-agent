@@ -649,7 +649,49 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
       .planner-columns { grid-template-columns: 1fr; }
       .routines-grid { grid-template-columns: 1fr; }
     }
-  </style>
+  
+    .mobile-menu-btn {
+      display: none;
+      position: fixed;
+      top: 12px;
+      left: 12px;
+      z-index: 1001;
+      background: var(--bg-base);
+      border: 1px solid var(--border-subtle);
+      color: var(--text-primary);
+      font-size: 22px;
+      width: 40px;
+      height: 40px;
+      border-radius: 8px;
+      cursor: pointer;
+      align-items: center;
+      justify-content: center;
+      line-height: 1;
+    }
+    .mobile-menu-overlay {
+      display: none;
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.5);
+      z-index: 999;
+    }
+    .mobile-menu-overlay.active { display: block; }
+    @media (max-width: 768px) {
+      .mobile-menu-btn { display: flex; }
+      .sidebar {
+        position: fixed;
+        top: 0; left: 0; bottom: 0;
+        z-index: 1000;
+        transform: translateX(-100%);
+        transition: transform 0.25s ease;
+        width: 280px;
+      }
+      .sidebar.open { transform: translateX(0); }
+      .main { width: 100% !important; }
+      .chat-messages { padding-top: 60px; }
+      .page-content { padding-top: 60px; }
+    }
+    </style>
 </head>
 <body>
   <div class="app">
@@ -2505,6 +2547,26 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
 
     loadRoutines();
   </script>
+
+<button class="mobile-menu-btn" id="mobileMenuBtn">&#9776;</button>
+<div class="mobile-menu-overlay" id="mobileMenuOverlay"></div>
+<script>
+(function() {
+  var btn = document.getElementById('mobileMenuBtn');
+  var overlay = document.getElementById('mobileMenuOverlay');
+  var sidebar = document.querySelector('.sidebar');
+  if (!btn || !sidebar) return;
+  function openMenu() { sidebar.classList.add('open'); overlay.classList.add('active'); }
+  function closeMenu() { sidebar.classList.remove('open'); overlay.classList.remove('active'); }
+  btn.addEventListener('click', function() { sidebar.classList.contains('open') ? closeMenu() : openMenu(); });
+  overlay.addEventListener('click', closeMenu);
+  sidebar.addEventListener('click', function(e) {
+    if (window.innerWidth <= 768 && (e.target.tagName === 'A' || e.target.closest('a') || e.target.closest('.nav-item'))) {
+      closeMenu();
+    }
+  });
+})();
+</script>
 </body>
 </html>"""
 
