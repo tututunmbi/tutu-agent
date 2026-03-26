@@ -1143,6 +1143,14 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
           if (json.data.timeline) updateChartsFromTimeline(json.data.timeline);
 
           console.log('Imani: Live Metricool data loaded.');
+
+          // Sync calendar statuses with published posts
+          try {
+            await fetch('/api/calendar/sync', { method: 'POST' });
+            console.log('Imani: Calendar sync completed.');
+          } catch(syncErr) {
+            console.log('Imani: Calendar sync skipped.');
+          }
         }
       } catch(e) {
         console.log('Imani: Metricool not available, using dashboard placeholders.');
@@ -2009,6 +2017,111 @@ async def api_calendar(platform: str = None):
     except Exception as e:
         logger.error("Calendar API error: %s", e)
         return {"error": str(e), "data": []}
+
+
+# ------------------------------------------------------------------
+# Calendar Sync — Match Metricool published posts to calendar entries
+# ------------------------------------------------------------------
+
+@app.post("/api/calendar/sync")
+async def api_calendar_sync():
+    """Sync published posts from Metricool back to the calendar sheet.
+    Matches by date and platform, updates status to 'Published'."""
+    if not sheets.is_connected() or not metricool.is_connected():
+        return {"error": "Sheets or Metricool not configured", "synced": 0}
+
+    try:
+        # Get all calendar items
+        calendar_items = sheets.get_full_calendar()
+        if not calendar_items:
+            return {"synced": 0, "message": "No calendar items found"}
+
+        # Get recent posts from all platforms (last 30 days)
+        ig_posts = await metricool.instagram_posts(days=30)
+        ig_reels = await metricool.instagram_reels(days=30)
+        tw_posts = await metricool.twitter_posts(days=30)
+        li_posts = await metricool.linkedin_posts(days=30)
+        yt_posts = await metricool.youtube_posts(days=30)
+
+        # Build a set of published dates per platform
+        published = {}
+        for post in (ig_posts or []) + (ig_reels or []):
+            pub = post.get("published") or post.get("created") or post.get("date")
+            if pub:
+                date_str = _format_sync_date(pub)
+                if date_str:
+                    published.setdefault("instagram", set()).add(date_str)
+
+        for post in (tw_posts or []):
+            pub = post.get("created") or post.get("published") or post.get("date")
+            if pub:
+                date_str = _format_sync_date(pub)
+                if date_str:
+                    published.setdefault("twitter", set()).add(date_str)
+
+        for post in (li_posts or []):
+            pub = post.get("published") or post.get("created") or post.get("date")
+            if pub:
+                date_str = _format_sync_date(pub)
+                if date_str:
+                    published.setdefault("linkedin", set()).add(date_str)
+
+        for post in (yt_posts or []):
+            pub = post.get("published") or post.get("created") or post.get("date")
+            if pub:
+                date_str = _format_sync_date(pub)
+                if date_str:
+                    published.setdefault("youtube", set()).add(date_str)
+
+        # Match calendar items and update status
+        synced = 0
+        for item in calendar_items:
+            status = (item.get("status", "") or "").lower().strip()
+            if status in ("published", "posted", "done"):
+                continue  # Already marked
+
+            cal_date = (item.get("date", "") or "").strip()
+            channel = (item.get("primary channel", "") or item.get("channel", "") or item.get("platform", "")).lower().strip()
+            row_num = item.get("_row")
+
+            if not cal_date or not row_num:
+                continue
+
+            # Check if this platform has a published post on this date
+            for platform, dates in published.items():
+                if platform in channel and cal_date in dates:
+                    sheets.update_calendar_status(row_num - 1, "Published")
+                    synced += 1
+                    break
+
+        return {"synced": synced, "message": f"Updated {synced} calendar entries to Published"}
+    except Exception as e:
+        logger.error("Calendar sync error: %s", e)
+        return {"error": str(e), "synced": 0}
+
+
+def _format_sync_date(raw) -> str:
+    """Convert Metricool date formats to match calendar date format (e.g. 'Mar 25')."""
+    if not raw:
+        return ""
+    try:
+        if isinstance(raw, (int, float)):
+            ts = raw / 1000 if raw > 1e12 else raw
+            dt = datetime.utcfromtimestamp(ts)
+        elif isinstance(raw, str):
+            for fmt in ("%Y-%m-%dT%H:%M:%S", "%Y-%m-%d", "%Y%m%d"):
+                try:
+                    dt = datetime.strptime(raw[:19], fmt)
+                    break
+                except ValueError:
+                    continue
+            else:
+                return ""
+        else:
+            return ""
+        return dt.strftime("%b %d").replace(" 0", " ")  # "Mar 5" not "Mar 05"
+    except Exception:
+        return ""
 
 
 # ------------------------------------------------------------------

@@ -162,18 +162,71 @@ class MetricoolClient:
         li_agg = await self.aggregations("LinkedIn")
         yt_agg = await self.aggregations("Youtube")
 
+        # Follower fallback: if aggregations don't have follower data, try timeline endpoints
+        ig_followers_data = await self.timeline("igFollowers", days)
+        tw_followers_data = await self.timeline("twitterFollowers", days)
+        li_followers_data = await self.timeline("inFollowers", days)
+        yt_followers_data = await self.timeline("ytSubscribers", days)
+
+        # Inject follower counts into aggregations if missing
+        if ig_agg is None:
+            ig_agg = {}
+        if not ig_agg.get("followers") and ig_followers_data:
+            latest = ig_followers_data[-1] if ig_followers_data else {}
+            ig_agg["followers"] = _safe_int(latest.get("value", 0) if isinstance(latest, dict) else 0)
+        if not ig_agg.get("followers"):
+            # Last resort: try profile endpoint
+            profile = await self.instagram_profile()
+            if profile and isinstance(profile, dict):
+                ig_agg["followers"] = _safe_int(profile.get("followers", 0) or profile.get("followedBy", 0))
+
+        if tw_agg is None:
+            tw_agg = {}
+        if not tw_agg.get("followers") and tw_followers_data:
+            latest = tw_followers_data[-1] if tw_followers_data else {}
+            tw_agg["followers"] = _safe_int(latest.get("value", 0) if isinstance(latest, dict) else 0)
+
+        if li_agg is None:
+            li_agg = {}
+        if not li_agg.get("followers") and not li_agg.get("connections") and li_followers_data:
+            latest = li_followers_data[-1] if li_followers_data else {}
+            li_agg["connections"] = _safe_int(latest.get("value", 0) if isinstance(latest, dict) else 0)
+
+        if yt_agg is None:
+            yt_agg = {}
+        if not yt_agg.get("subscribers") and yt_followers_data:
+            latest = yt_followers_data[-1] if yt_followers_data else {}
+            yt_agg["subscribers"] = _safe_int(latest.get("value", 0) if isinstance(latest, dict) else 0)
+
+        # Also compute stats from posts as extra fallback
+        ig_posts = await self.instagram_posts(days=days, sort="published")
+        ig_reels = await self.instagram_reels(days=days, sort="published")
+        tw_posts = await self.twitter_posts(days=days, sort="created")
+        tt_posts = await self.tiktok_posts(days=days)
+        li_posts = await self.linkedin_posts(days=days, sort="likes")
+        yt_posts = await self.youtube_posts(days=days, sort="published")
+
+        ig_computed = self._compute_stats_from_posts(ig_posts, ig_reels)
+        tw_computed = self._compute_stats_from_posts(tw_posts)
+        li_computed = self._compute_stats_from_posts(li_posts)
+        yt_computed = self._compute_stats_from_posts(yt_posts)
+
+        # Fill in missing agg fields from computed stats
+        for agg, computed in [(ig_agg, ig_computed), (tw_agg, tw_computed), (li_agg, li_computed), (yt_agg, yt_computed)]:
+            if not agg.get("reach") and not agg.get("impressions"):
+                agg["reach"] = computed.get("total_reach", 0)
+            if not agg.get("posts") and not agg.get("tweets") and not agg.get("videos"):
+                agg["posts"] = computed.get("posts_count", 0)
+            if not agg.get("engagement"):
+                rate = computed.get("avg_engagement_rate", 0)
+                if rate:
+                    agg["engagement"] = rate / 100  # Store as decimal
+
         # Timeline data for charts
         ig_reach = await self.timeline("igImpressions", days)
         tw_impressions = await self.timeline("twImpressions", days)
         li_impressions = await self.timeline("inImpressions", days)
         yt_views = await self.timeline("ytViews", days)
-
-        # Recent posts
-        ig_posts = await self.instagram_posts(days=days, sort="published")
-        tw_posts = await self.twitter_posts(days=days, sort="created")
-        tt_posts = await self.tiktok_posts(days=days)
-        li_posts = await self.linkedin_posts(days=days, sort="likes")
-        yt_posts = await self.youtube_posts(days=days, sort="published")
 
         return {
             "aggregations": {
