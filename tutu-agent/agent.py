@@ -157,6 +157,18 @@ You have a persistent day plan system. When you create a schedule or day plan fo
 5. When Tutu asks "what should I do next?" or "what's next?", reference the day plan and the current time
 6. If the day plan needs to change because new priorities came up, show Tutu the FULL updated plan so she can see what moved
 
+## DAILY PLANNER PAGE — VISUAL SCHEDULE
+Tutu's dashboard now has a **Daily Planner** page with a visual time-blocked schedule. When you plan Tutu's day or she asks you to slot tasks:
+1. Use the `update_daily_planner` tool to push time slots, priorities, and tasks to the visual planner
+2. Time slots are in 30-min increments (e.g., "09:00", "09:30", "10:00"... up to "21:00")
+3. Priority categories map to her life areas: stamfordham, bddm, spiritual, impact, brand, financial, health, career, proficio
+4. Important tasks appear in a separate checklist on the planner page
+5. ALWAYS update the daily planner when you create or modify a day schedule — this is what Tutu sees visually
+6. The planner page also has a "Plan with Imani" button that sends her to chat with you — be ready for planning conversations
+
+## ROUTINE TRACKER
+Tutu has morning, afternoon, and night routines on the Routines page. She can check items off as she completes them. When discussing accountability or habits, reference her routine completion and encourage consistency.
+
 ## INSTINCT SYSTEM
 You have a learning system that tracks Tutu's patterns over time. When you notice recurring behaviors, preferences, decision styles, energy patterns, or communication tendencies, save them using the save_instinct tool.
 
@@ -893,6 +905,33 @@ TOOLS = [
             },
             "required": ["action"]
         }
+    },
+    {
+        "name": "update_daily_planner",
+        "description": "Update Tutu's daily planner with time-blocked tasks, priorities, and important tasks. Use this when planning her day, scheduling tasks, or when she asks you to slot something into her schedule. The planner has 30-min time slots from 06:00-21:00, priority categories (stamfordham, bddm, spiritual, impact, brand, financial, health, career, proficio), and an important tasks list.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "date": {
+                    "type": "string",
+                    "description": "Date in YYYY-MM-DD format. Defaults to today."
+                },
+                "slots": {
+                    "type": "object",
+                    "description": "Time slots to fill. Keys are times like '09:00', '09:30', etc. Values are task descriptions. Example: {'09:00': 'Deep work: Stamfordham proposal', '09:30': 'Deep work: Stamfordham proposal', '10:00': 'Client call with Sarah'}"
+                },
+                "priorities": {
+                    "type": "object",
+                    "description": "Priority category values. Keys: stamfordham, bddm, spiritual, impact, brand, financial, health, career, proficio. Values: short task description."
+                },
+                "tasks": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Important tasks to add to the day's task list."
+                }
+            },
+            "required": []
+        }
     }
 ]
 
@@ -1281,6 +1320,23 @@ class TutuAdvisor:
                 else:
                     return json.dumps({"success": False, "error": f"Unknown action: {action}"})
                 return json.dumps(result)
+
+            elif tool_name == "update_daily_planner":
+                import httpx
+                date = tool_input.get("date", datetime.now().strftime("%Y-%m-%d"))
+                payload = {}
+                if "slots" in tool_input:
+                    payload["slots"] = tool_input["slots"]
+                if "priorities" in tool_input:
+                    payload["priorities"] = tool_input["priorities"]
+                if "tasks" in tool_input:
+                    payload["tasks"] = tool_input["tasks"]
+                try:
+                    async with httpx.AsyncClient() as client:
+                        resp = await client.post(f"http://localhost:{os.getenv('PORT', '8000')}/api/planner/{date}/bulk", json=payload)
+                        return json.dumps({"success": True, "message": f"Daily planner updated for {date}. Tutu can see it on the Daily Planner page.", "data": resp.json()})
+                except Exception as ex:
+                    return json.dumps({"success": False, "error": str(ex)})
 
             else:
                 return json.dumps({"success": False, "error": f"Unknown tool: {tool_name}"})

@@ -5,7 +5,10 @@ Deployed on Railway, connected via WhatsApp (Twilio)
 Dashboard V3 — Imani: dark theme, per-platform content pages, LIVE analytics via Metricool
 """
 import os
+import json
 import logging
+import sqlite3
+from datetime import datetime, timedelta
 from fastapi import FastAPI, Request, Response
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
@@ -517,7 +520,94 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
     .field-input::placeholder { color: var(--text-muted); }
     .modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px; }
 
-    /* ===== SCROLLBAR ===== */
+    /* ===== DAILY PLANNER ===== */
+    .planner-page { display:flex; flex-direction:column; height:100%; }
+    .planner-header { padding:32px 40px 0; }
+    .planner-date-nav { display:flex; align-items:center; gap:16px; margin-top:12px; }
+    .planner-date-nav button { background:var(--bg-elevated); border:1px solid var(--border); color:var(--text-secondary); border-radius:8px; padding:6px 12px; cursor:pointer; font-size:13px; transition:all 0.2s; }
+    .planner-date-nav button:hover { color:var(--text-primary); border-color:var(--accent); }
+    .planner-date-nav .planner-date-label { font-family:'Crimson Text',serif; font-size:22px; color:var(--text-primary); min-width:180px; text-align:center; }
+    .planner-body { flex:1; overflow-y:auto; padding:20px 40px 40px; }
+    .planner-columns { display:grid; grid-template-columns:1fr 340px; gap:24px; }
+    .planner-schedule { background:var(--bg-surface); border:1px solid var(--border); border-radius:12px; overflow:hidden; }
+    .planner-schedule-header { padding:14px 20px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; }
+    .planner-schedule-title { font-size:14px; font-weight:600; color:var(--text-primary); display:flex; align-items:center; gap:8px; }
+    .planner-time-grid { }
+    .planner-slot { display:grid; grid-template-columns:72px 1fr; border-bottom:1px solid var(--border-subtle); min-height:44px; transition:background 0.15s; }
+    .planner-slot:last-child { border-bottom:none; }
+    .planner-slot:hover { background:var(--bg-hover); }
+    .planner-slot-time { padding:10px 16px; font-size:12px; font-weight:500; color:var(--text-muted); font-variant-numeric:tabular-nums; display:flex; align-items:flex-start; padding-top:12px; }
+    .planner-slot-content { padding:8px 16px 8px 0; display:flex; align-items:center; gap:8px; min-height:28px; }
+    .planner-slot-task { font-size:13px; color:var(--text-primary); flex:1; }
+    .planner-slot-task.empty { color:var(--text-muted); font-style:italic; font-size:12px; }
+    .planner-slot-category { width:4px; height:24px; border-radius:2px; flex-shrink:0; }
+    .planner-slot-input { background:transparent; border:none; color:var(--text-primary); font-size:13px; flex:1; padding:4px 0; outline:none; font-family:inherit; }
+    .planner-slot-input::placeholder { color:var(--text-muted); font-style:italic; }
+    .planner-slot-input:focus { border-bottom:1px solid var(--accent); }
+    .planner-slot-remove { background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:14px; padding:2px 6px; border-radius:4px; opacity:0; transition:opacity 0.15s; }
+    .planner-slot:hover .planner-slot-remove { opacity:1; }
+    .planner-slot-remove:hover { color:var(--accent); background:var(--accent-subtle); }
+    .planner-sidebar { display:flex; flex-direction:column; gap:16px; }
+    .planner-card { background:var(--bg-surface); border:1px solid var(--border); border-radius:12px; overflow:hidden; }
+    .planner-card-header { padding:14px 20px; border-bottom:1px solid var(--border); font-size:14px; font-weight:600; color:var(--text-primary); display:flex; align-items:center; gap:8px; }
+    .planner-card-body { padding:16px 20px; }
+    .priority-item { display:flex; align-items:center; gap:10px; padding:8px 0; border-bottom:1px solid var(--border-subtle); }
+    .priority-item:last-child { border-bottom:none; }
+    .priority-color { width:4px; height:28px; border-radius:2px; flex-shrink:0; }
+    .priority-label { font-size:12px; color:var(--text-secondary); flex:1; }
+    .priority-task { font-size:13px; color:var(--text-primary); }
+    .task-item { display:flex; align-items:center; gap:10px; padding:8px 0; border-bottom:1px solid var(--border-subtle); }
+    .task-item:last-child { border-bottom:none; }
+    .task-check { width:18px; height:18px; border-radius:4px; border:2px solid var(--border); background:transparent; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:all 0.2s; flex-shrink:0; }
+    .task-check.checked { background:var(--accent); border-color:var(--accent); }
+    .task-check.checked::after { content:'\2713'; color:white; font-size:11px; }
+    .task-text { font-size:13px; color:var(--text-primary); flex:1; }
+    .task-text.done { text-decoration:line-through; color:var(--text-muted); }
+    .add-task-row { display:flex; gap:8px; margin-top:8px; }
+    .add-task-input { flex:1; background:var(--bg-elevated); border:1px solid var(--border); border-radius:6px; padding:6px 10px; color:var(--text-primary); font-size:12px; font-family:inherit; outline:none; }
+    .add-task-input:focus { border-color:var(--accent); }
+    .add-task-btn { background:var(--accent); border:none; color:white; border-radius:6px; padding:6px 12px; font-size:12px; cursor:pointer; }
+
+        /* ===== ROUTINES ===== */
+    .routines-page { display:flex; flex-direction:column; height:100%; }
+    .routines-header { padding:32px 40px 0; }
+    .routines-body { flex:1; overflow-y:auto; padding:20px 40px 40px; }
+    .routines-grid { display:grid; grid-template-columns:repeat(3, 1fr); gap:24px; }
+    .routine-card { background:var(--bg-surface); border:1px solid var(--border); border-radius:16px; overflow:hidden; }
+    .routine-card-top { padding:20px 24px 16px; display:flex; align-items:center; gap:12px; border-bottom:1px solid var(--border); }
+    .routine-icon { width:40px; height:40px; border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:20px; }
+    .routine-icon.morning { background:rgba(251,191,36,0.12); color:#FBB724; }
+    .routine-icon.afternoon { background:rgba(251,146,60,0.12); color:#FB923C; }
+    .routine-icon.night { background:rgba(129,140,248,0.12); color:#818CF8; }
+    .routine-title { font-size:16px; font-weight:600; color:var(--text-primary); }
+    .routine-subtitle { font-size:12px; color:var(--text-muted); }
+    .routine-items { padding:16px 24px 20px; }
+    .routine-item { display:flex; align-items:center; gap:12px; padding:10px 0; border-bottom:1px solid var(--border-subtle); }
+    .routine-item:last-child { border-bottom:none; }
+    .routine-check { width:22px; height:22px; border-radius:6px; border:2px solid var(--border); background:transparent; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:all 0.25s; flex-shrink:0; }
+    .routine-check.checked { border-color:var(--accent); background:var(--accent); }
+    .routine-check.checked::after { content:'\2713'; color:white; font-size:13px; font-weight:700; }
+    .routine-check-label { font-size:14px; color:var(--text-primary); flex:1; }
+    .routine-check-label.done { color:var(--text-muted); text-decoration:line-through; }
+    .routine-progress { padding:0 24px 20px; }
+    .routine-progress-bar { height:6px; background:var(--bg-elevated); border-radius:3px; overflow:hidden; }
+    .routine-progress-fill { height:100%; border-radius:3px; transition:width 0.4s ease; }
+    .routine-progress-fill.morning { background:linear-gradient(90deg, #FBB724, #F59E0B); }
+    .routine-progress-fill.afternoon { background:linear-gradient(90deg, #FB923C, #F97316); }
+    .routine-progress-fill.night { background:linear-gradient(90deg, #818CF8, #6366F1); }
+    .routine-progress-text { font-size:11px; color:var(--text-muted); margin-top:6px; text-align:right; }
+    .routine-add-row { display:flex; gap:8px; margin-top:8px; padding:0 24px 16px; }
+    .routine-add-input { flex:1; background:var(--bg-elevated); border:1px solid var(--border); border-radius:6px; padding:8px 12px; color:var(--text-primary); font-size:13px; font-family:inherit; outline:none; }
+    .routine-add-input:focus { border-color:var(--accent); }
+    .routine-add-btn { background:var(--accent); border:none; color:white; border-radius:6px; padding:8px 14px; font-size:13px; cursor:pointer; font-weight:500; }
+    .routines-streak { margin-top:24px; background:var(--bg-surface); border:1px solid var(--border); border-radius:16px; padding:24px; }
+    .streak-title { font-size:14px; font-weight:600; color:var(--text-primary); margin-bottom:12px; }
+    .streak-row { display:flex; gap:4px; flex-wrap:wrap; }
+    .streak-dot { width:14px; height:14px; border-radius:3px; background:var(--bg-elevated); }
+    .streak-dot.done { background:var(--accent); }
+    .streak-dot.partial { background:rgba(199, 91, 58, 0.4); }
+
+        /* ===== SCROLLBAR ===== */
     ::-webkit-scrollbar { width: 6px; }
     ::-webkit-scrollbar-track { background: transparent; }
     ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
@@ -528,11 +618,15 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
       .sidebar { width: 220px; }
       .platform-stats, .analytics-overview { grid-template-columns: repeat(2, 1fr); }
       .charts-row { grid-template-columns: 1fr; }
+      .planner-columns { grid-template-columns: 1fr; }
+      .routines-grid { grid-template-columns: 1fr; }
     }
     @media (max-width: 640px) {
       .sidebar { position: absolute; left: 0; top: 0; height: 100%; z-index: 200; box-shadow: 0 0 40px rgba(0,0,0,0.5); }
-      .chat-messages, .chat-input-bar, .platform-body, .analytics-body, .agents-body { padding-left: 20px; padding-right: 20px; }
+      .chat-messages, .chat-input-bar, .platform-body, .analytics-body, .agents-body, .planner-body, .routines-body { padding-left: 20px; padding-right: 20px; }
       .platform-stats, .analytics-overview { grid-template-columns: 1fr; }
+      .planner-columns { grid-template-columns: 1fr; }
+      .routines-grid { grid-template-columns: 1fr; }
     }
   </style>
 </head>
@@ -611,6 +705,18 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
         <div class="nav-item" data-panel="agents">
           <div class="nav-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/></svg></div>
           <span>Sub-Agents</span>
+        </div>
+
+        <div class="nav-divider"></div>
+        <div class="nav-label">My Day</div>
+
+        <div class="nav-item" data-panel="planner">
+          <div class="nav-icon"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></div>
+          <span>Daily Planner</span>
+        </div>
+        <div class="nav-item" data-panel="routines">
+          <div class="nav-icon"><svg viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg></div>
+          <span>Routines</span>
         </div>
       </nav>
 
@@ -942,7 +1048,121 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
         </div>
       </div>
 
-      <!-- REPURPOSE MODAL -->
+      <!-- DAILY PLANNER -->
+      <div class="panel" id="panel-planner">
+        <div class="planner-page">
+          <div class="planner-header">
+            <div class="page-header-row">
+              <div>
+                <div class="page-title">Daily Planner</div>
+                <div class="page-subtitle">Plan your day with Imani — time-block everything</div>
+              </div>
+              <button class="btn btn-accent" onclick="planWithImani()">Plan with Imani</button>
+            </div>
+            <div class="planner-date-nav">
+              <button onclick="plannerPrevDay()">&larr; Prev</button>
+              <div class="planner-date-label" id="planner-date-label">Today</div>
+              <button onclick="plannerNextDay()">Next &rarr;</button>
+              <button onclick="plannerToday()" style="margin-left:8px;background:var(--accent-subtle);color:var(--accent);border-color:var(--accent);">Today</button>
+            </div>
+          </div>
+          <div class="planner-body">
+            <div class="planner-columns">
+              <div class="planner-schedule">
+                <div class="planner-schedule-header">
+                  <div class="planner-schedule-title">&#9925; Schedule</div>
+                  <span style="font-size:11px;color:var(--text-muted);">Click a slot to add a task</span>
+                </div>
+                <div class="planner-time-grid" id="planner-time-grid"></div>
+              </div>
+              <div class="planner-sidebar">
+                <div class="planner-card">
+                  <div class="planner-card-header">&#127919; Priorities</div>
+                  <div class="planner-card-body" id="planner-priorities">
+                    <div class="priority-item"><div class="priority-color" style="background:#E74C3C;"></div><div><div class="priority-label">Stamfordham Global</div><div class="priority-task" id="pri-stamfordham">—</div></div></div>
+                    <div class="priority-item"><div class="priority-color" style="background:#3498DB;"></div><div><div class="priority-label">BDDM Collective</div><div class="priority-task" id="pri-bddm">—</div></div></div>
+                    <div class="priority-item"><div class="priority-color" style="background:#ECF0F1;"></div><div><div class="priority-label">Spiritual / Personal Growth</div><div class="priority-task" id="pri-spiritual">—</div></div></div>
+                    <div class="priority-item"><div class="priority-color" style="background:#27AE60;"></div><div><div class="priority-label">Impact</div><div class="priority-task" id="pri-impact">—</div></div></div>
+                    <div class="priority-item"><div class="priority-color" style="background:#2ECC71;"></div><div><div class="priority-label">My Brand</div><div class="priority-task" id="pri-brand">—</div></div></div>
+                    <div class="priority-item"><div class="priority-color" style="background:#E91E63;"></div><div><div class="priority-label">Financial & Property</div><div class="priority-task" id="pri-financial">—</div></div></div>
+                    <div class="priority-item"><div class="priority-color" style="background:#FFC107;"></div><div><div class="priority-label">Health & Self-care</div><div class="priority-task" id="pri-health">—</div></div></div>
+                    <div class="priority-item"><div class="priority-color" style="background:#5DADE2;"></div><div><div class="priority-label">Career & Professional</div><div class="priority-task" id="pri-career">—</div></div></div>
+                    <div class="priority-item"><div class="priority-color" style="background:#F0B27A;"></div><div><div class="priority-label">Proficio</div><div class="priority-task" id="pri-proficio">—</div></div></div>
+                  </div>
+                </div>
+                <div class="planner-card">
+                  <div class="planner-card-header">&#9889; Important Tasks</div>
+                  <div class="planner-card-body" id="planner-tasks"></div>
+                  <div class="add-task-row" style="padding:0 20px 16px;">
+                    <input type="text" class="add-task-input" id="add-task-input" placeholder="Add a task..." onkeydown="if(event.key==='Enter')addImportantTask()">
+                    <button class="add-task-btn" onclick="addImportantTask()">+</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+            <!-- ROUTINES -->
+      <div class="panel" id="panel-routines">
+        <div class="routines-page">
+          <div class="routines-header">
+            <div class="page-header-row">
+              <div>
+                <div class="page-title">Routine Tracker</div>
+                <div class="page-subtitle">Morning, afternoon, and night — build the habits that build you</div>
+              </div>
+            </div>
+          </div>
+          <div class="routines-body">
+            <div class="routines-grid">
+              <div class="routine-card" id="routine-morning">
+                <div class="routine-card-top">
+                  <div class="routine-icon morning">&#9728;</div>
+                  <div><div class="routine-title">Morning</div><div class="routine-subtitle">Start strong</div></div>
+                </div>
+                <div class="routine-items" id="routine-morning-items"></div>
+                <div class="routine-progress"><div class="routine-progress-bar"><div class="routine-progress-fill morning" id="routine-morning-bar" style="width:0%"></div></div><div class="routine-progress-text" id="routine-morning-pct">0%</div></div>
+                <div class="routine-add-row">
+                  <input type="text" class="routine-add-input" id="routine-morning-input" placeholder="Add habit..." onkeydown="if(event.key==='Enter')addRoutineItem('morning')">
+                  <button class="routine-add-btn" onclick="addRoutineItem('morning')">+</button>
+                </div>
+              </div>
+              <div class="routine-card" id="routine-afternoon">
+                <div class="routine-card-top">
+                  <div class="routine-icon afternoon">&#9788;</div>
+                  <div><div class="routine-title">Afternoon</div><div class="routine-subtitle">Stay focused</div></div>
+                </div>
+                <div class="routine-items" id="routine-afternoon-items"></div>
+                <div class="routine-progress"><div class="routine-progress-bar"><div class="routine-progress-fill afternoon" id="routine-afternoon-bar" style="width:0%"></div></div><div class="routine-progress-text" id="routine-afternoon-pct">0%</div></div>
+                <div class="routine-add-row">
+                  <input type="text" class="routine-add-input" id="routine-afternoon-input" placeholder="Add habit..." onkeydown="if(event.key==='Enter')addRoutineItem('afternoon')">
+                  <button class="routine-add-btn" onclick="addRoutineItem('afternoon')">+</button>
+                </div>
+              </div>
+              <div class="routine-card" id="routine-night">
+                <div class="routine-card-top">
+                  <div class="routine-icon night">&#9790;</div>
+                  <div><div class="routine-title">Night</div><div class="routine-subtitle">Wind down well</div></div>
+                </div>
+                <div class="routine-items" id="routine-night-items"></div>
+                <div class="routine-progress"><div class="routine-progress-bar"><div class="routine-progress-fill night" id="routine-night-bar" style="width:0%"></div></div><div class="routine-progress-text" id="routine-night-pct">0%</div></div>
+                <div class="routine-add-row">
+                  <input type="text" class="routine-add-input" id="routine-night-input" placeholder="Add habit..." onkeydown="if(event.key==='Enter')addRoutineItem('night')">
+                  <button class="routine-add-btn" onclick="addRoutineItem('night')">+</button>
+                </div>
+              </div>
+            </div>
+            <div class="routines-streak" id="routines-streak">
+              <div class="streak-title">&#128293; Streak — Last 30 Days</div>
+              <div class="streak-row" id="streak-dots"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+            <!-- REPURPOSE MODAL -->
       <div class="modal-overlay" id="repurpose-modal" style="display:none">
         <div class="modal-box" style="max-width:600px">
           <div class="modal-title">Repurpose Content</div>
@@ -1875,6 +2095,228 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
 
     // Load sub-agent status on page load
     loadSubAgentStatus();
+
+    // ===== DAILY PLANNER =====
+    let plannerDate = new Date();
+    plannerDate.setHours(0,0,0,0);
+
+    function fmtPlannerDate(d) {
+      const opts = { weekday:'long', year:'numeric', month:'long', day:'numeric' };
+      const today = new Date(); today.setHours(0,0,0,0);
+      const diff = (d - today) / 86400000;
+      if (diff === 0) return 'Today \u2014 ' + d.toLocaleDateString('en-US', opts);
+      if (diff === 1) return 'Tomorrow \u2014 ' + d.toLocaleDateString('en-US', opts);
+      if (diff === -1) return 'Yesterday \u2014 ' + d.toLocaleDateString('en-US', opts);
+      return d.toLocaleDateString('en-US', opts);
+    }
+
+    function dateKey(d) {
+      return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+    }
+
+    function plannerPrevDay() { plannerDate.setDate(plannerDate.getDate()-1); loadPlanner(); }
+    function plannerNextDay() { plannerDate.setDate(plannerDate.getDate()+1); loadPlanner(); }
+    function plannerToday() { plannerDate = new Date(); plannerDate.setHours(0,0,0,0); loadPlanner(); }
+
+    function buildTimeGrid() {
+      const grid = document.getElementById('planner-time-grid');
+      grid.innerHTML = '';
+      for (let h = 6; h <= 21; h++) {
+        for (let m = 0; m < 60; m += 30) {
+          const time = String(h).padStart(2,'0') + ':' + String(m).padStart(2,'0');
+          const slot = document.createElement('div');
+          slot.className = 'planner-slot';
+          slot.dataset.time = time;
+          slot.innerHTML = '<div class="planner-slot-time">' + time + '</div>' +
+            '<div class="planner-slot-content">' +
+            '<input class="planner-slot-input" placeholder="Click to add..." data-time="' + time + '" ' +
+            'onfocus="this.placeholder=\\'\\'" onblur="savePlannerSlot(this)">' +
+            '<button class="planner-slot-remove" onclick="clearPlannerSlot(this)" title="Clear">&times;</button>' +
+            '</div>';
+          grid.appendChild(slot);
+        }
+      }
+    }
+
+    async function loadPlanner() {
+      document.getElementById('planner-date-label').textContent = fmtPlannerDate(plannerDate);
+      const dk = dateKey(plannerDate);
+      try {
+        const res = await fetch('/api/planner/' + dk);
+        const data = await res.json();
+        document.querySelectorAll('.planner-slot-input').forEach(inp => {
+          inp.value = '';
+          inp.placeholder = 'Click to add...';
+          inp.parentElement.querySelector('.planner-slot-remove').style.display = 'none';
+        });
+        if (data.slots) {
+          Object.entries(data.slots).forEach(([time, task]) => {
+            const inp = document.querySelector('.planner-slot-input[data-time="' + time + '"]');
+            if (inp && task) {
+              inp.value = task;
+              inp.parentElement.querySelector('.planner-slot-remove').style.display = '';
+            }
+          });
+        }
+        if (data.priorities) {
+          Object.entries(data.priorities).forEach(([key, val]) => {
+            const el = document.getElementById('pri-' + key);
+            if (el) el.textContent = val || '\u2014';
+          });
+        }
+        renderImportantTasks(data.tasks || []);
+        highlightCurrentSlot();
+      } catch(e) { console.log('Planner load skipped:', e); }
+    }
+
+    function highlightCurrentSlot() {
+      const now = new Date();
+      const today = new Date(); today.setHours(0,0,0,0);
+      if (plannerDate.getTime() !== today.getTime()) return;
+      const currentTime = String(now.getHours()).padStart(2,'0') + ':' + (now.getMinutes() < 30 ? '00' : '30');
+      document.querySelectorAll('.planner-slot').forEach(s => {
+        s.style.background = s.dataset.time === currentTime ? 'var(--accent-subtle)' : '';
+      });
+    }
+
+    async function savePlannerSlot(inp) {
+      inp.placeholder = 'Click to add...';
+      const time = inp.dataset.time;
+      const task = inp.value.trim();
+      const dk = dateKey(plannerDate);
+      inp.parentElement.querySelector('.planner-slot-remove').style.display = task ? '' : 'none';
+      try {
+        await fetch('/api/planner/' + dk + '/slot', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ time, task })
+        });
+      } catch(e) {}
+    }
+
+    async function clearPlannerSlot(btn) {
+      const inp = btn.parentElement.querySelector('.planner-slot-input');
+      inp.value = '';
+      btn.style.display = 'none';
+      await savePlannerSlot(inp);
+    }
+
+    function renderImportantTasks(tasks) {
+      const container = document.getElementById('planner-tasks');
+      container.innerHTML = tasks.map((t, i) =>
+        '<div class="task-item">' +
+        '<div class="task-check ' + (t.done ? 'checked' : '') + '" onclick="togglePlannerTask(' + i + ')"></div>' +
+        '<div class="task-text ' + (t.done ? 'done' : '') + '">' + escapeHtml(t.text) + '</div>' +
+        '</div>'
+      ).join('') || '<div style="color:var(--text-muted);font-size:12px;padding:4px 0;">No tasks yet</div>';
+    }
+
+    async function togglePlannerTask(index) {
+      const dk = dateKey(plannerDate);
+      try { await fetch('/api/planner/' + dk + '/task/' + index + '/toggle', { method: 'POST' }); loadPlanner(); } catch(e) {}
+    }
+
+    async function addImportantTask() {
+      const inp = document.getElementById('add-task-input');
+      const text = inp.value.trim();
+      if (!text) return;
+      inp.value = '';
+      const dk = dateKey(plannerDate);
+      try {
+        await fetch('/api/planner/' + dk + '/task', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text })
+        });
+        loadPlanner();
+      } catch(e) {}
+    }
+
+    function planWithImani() {
+      document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+      document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+      document.querySelector('[data-panel="chat"]').classList.add('active');
+      document.getElementById('panel-chat').classList.add('active');
+      const chatInput = document.getElementById('chat-input');
+      chatInput.value = "Let's plan my day. What do I have coming up and what should I prioritize today?";
+      chatInput.focus();
+    }
+
+    buildTimeGrid();
+    loadPlanner();
+    setInterval(highlightCurrentSlot, 60000);
+
+    // ===== ROUTINES =====
+    const defaultRoutines = {
+      morning: ['Prayer / Meditation', 'Journaling', 'Exercise', 'Healthy Breakfast', 'Review Day Plan'],
+      afternoon: ['Lunch Break (no screen)', 'Networking Calls/DMs', 'Personal Development Reading', 'Hydration Check'],
+      night: ['Evening Reflection', 'Gratitude Journal', 'Prepare Tomorrow', 'Screen Off by 10pm', 'Skincare Routine']
+    };
+
+    async function loadRoutines() {
+      const dk = dateKey(new Date());
+      try {
+        const res = await fetch('/api/routines/' + dk);
+        const data = await res.json();
+        ['morning', 'afternoon', 'night'].forEach(period => {
+          const items = data[period] || [];
+          renderRoutineItems(period, items);
+        });
+        loadStreak();
+      } catch(e) {
+        ['morning', 'afternoon', 'night'].forEach(period => {
+          renderRoutineItems(period, defaultRoutines[period].map(name => ({name, done: false})));
+        });
+      }
+    }
+
+    function renderRoutineItems(period, items) {
+      const container = document.getElementById('routine-' + period + '-items');
+      container.innerHTML = items.map((item, i) => {
+        const name = typeof item === 'string' ? item : item.name;
+        const done = typeof item === 'object' ? item.done : false;
+        return '<div class="routine-item">' +
+          '<div class="routine-check ' + (done ? 'checked' : '') + '" onclick="toggleRoutine(\\'' + period + '\\', ' + i + ')"></div>' +
+          '<div class="routine-check-label ' + (done ? 'done' : '') + '">' + escapeHtml(name) + '</div>' +
+          '</div>';
+      }).join('');
+      const total = items.length;
+      const checked = items.filter(it => typeof it === 'object' ? it.done : false).length;
+      const pct = total > 0 ? Math.round(checked / total * 100) : 0;
+      document.getElementById('routine-' + period + '-bar').style.width = pct + '%';
+      document.getElementById('routine-' + period + '-pct').textContent = pct + '% complete';
+    }
+
+    async function toggleRoutine(period, index) {
+      const dk = dateKey(new Date());
+      try { await fetch('/api/routines/' + dk + '/' + period + '/' + index + '/toggle', { method: 'POST' }); loadRoutines(); } catch(e) {}
+    }
+
+    async function addRoutineItem(period) {
+      const inp = document.getElementById('routine-' + period + '-input');
+      const name = inp.value.trim();
+      if (!name) return;
+      inp.value = '';
+      const dk = dateKey(new Date());
+      try {
+        await fetch('/api/routines/' + dk + '/' + period, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name })
+        });
+        loadRoutines();
+      } catch(e) {}
+    }
+
+    async function loadStreak() {
+      try {
+        const res = await fetch('/api/routines/streak');
+        const data = await res.json();
+        const container = document.getElementById('streak-dots');
+        container.innerHTML = (data.days || []).map(d =>
+          '<div class="streak-dot ' + (d.pct >= 80 ? 'done' : d.pct > 0 ? 'partial' : '') + '" title="' + d.date + ': ' + d.pct + '%"></div>'
+        ).join('');
+      } catch(e) {}
+    }
+
+    loadRoutines();
   </script>
 </body>
 </html>"""
@@ -2122,6 +2564,193 @@ def _format_sync_date(raw) -> str:
         return dt.strftime("%b %d").replace(" 0", " ")  # "Mar 5" not "Mar 05"
     except Exception:
         return ""
+
+
+# ------------------------------------------------------------------
+# Daily Planner & Routine Tracker — SQLite persistence
+# ------------------------------------------------------------------
+
+PLANNER_DB = os.getenv("PLANNER_DB_PATH", "planner.db")
+
+
+def _planner_db():
+    conn = sqlite3.connect(PLANNER_DB)
+    conn.execute("CREATE TABLE IF NOT EXISTS planner_slots (date TEXT, time TEXT, task TEXT, PRIMARY KEY(date, time))")
+    conn.execute("CREATE TABLE IF NOT EXISTS planner_tasks (id INTEGER PRIMARY KEY AUTOINCREMENT, date TEXT, text TEXT, done INTEGER DEFAULT 0, sort_order INTEGER DEFAULT 0)")
+    conn.execute("CREATE TABLE IF NOT EXISTS planner_priorities (date TEXT, category TEXT, value TEXT, PRIMARY KEY(date, category))")
+    conn.execute("CREATE TABLE IF NOT EXISTS routine_templates (period TEXT, name TEXT, sort_order INTEGER DEFAULT 0)")
+    conn.execute("CREATE TABLE IF NOT EXISTS routine_checks (date TEXT, period TEXT, item_index INTEGER, done INTEGER DEFAULT 0, name TEXT, PRIMARY KEY(date, period, item_index))")
+    conn.row_factory = sqlite3.Row
+    return conn
+
+
+def _init_routine_defaults(conn, date_str, period):
+    existing = conn.execute("SELECT COUNT(*) FROM routine_checks WHERE date=? AND period=?", (date_str, period)).fetchone()[0]
+    if existing > 0:
+        return
+    templates = conn.execute("SELECT name, sort_order FROM routine_templates WHERE period=? ORDER BY sort_order", (period,)).fetchall()
+    if templates:
+        for i, t in enumerate(templates):
+            conn.execute("INSERT INTO routine_checks (date, period, item_index, done, name) VALUES (?,?,?,0,?)", (date_str, period, i, t["name"]))
+    else:
+        defaults = {
+            "morning": ["Prayer / Meditation", "Journaling", "Exercise", "Healthy Breakfast", "Review Day Plan"],
+            "afternoon": ["Lunch Break (no screen)", "Networking Calls/DMs", "Personal Development Reading", "Hydration Check"],
+            "night": ["Evening Reflection", "Gratitude Journal", "Prepare Tomorrow", "Screen Off by 10pm", "Skincare Routine"]
+        }
+        for i, name in enumerate(defaults.get(period, [])):
+            conn.execute("INSERT INTO routine_checks (date, period, item_index, done, name) VALUES (?,?,?,0,?)", (date_str, period, i, name))
+    conn.commit()
+
+
+@app.get("/api/planner/{date}")
+async def api_get_planner(date: str):
+    conn = _planner_db()
+    slots = {}
+    for row in conn.execute("SELECT time, task FROM planner_slots WHERE date=?", (date,)):
+        slots[row["time"]] = row["task"]
+    priorities = {}
+    for row in conn.execute("SELECT category, value FROM planner_priorities WHERE date=?", (date,)):
+        priorities[row["category"]] = row["value"]
+    tasks = []
+    for row in conn.execute("SELECT id, text, done FROM planner_tasks WHERE date=? ORDER BY sort_order, id", (date,)):
+        tasks.append({"id": row["id"], "text": row["text"], "done": bool(row["done"])})
+    conn.close()
+    return {"date": date, "slots": slots, "priorities": priorities, "tasks": tasks}
+
+
+@app.post("/api/planner/{date}/slot")
+async def api_set_planner_slot(date: str, request: Request):
+    body = await request.json()
+    time = body.get("time", "")
+    task = body.get("task", "").strip()
+    conn = _planner_db()
+    if task:
+        conn.execute("INSERT OR REPLACE INTO planner_slots (date, time, task) VALUES (?,?,?)", (date, time, task))
+    else:
+        conn.execute("DELETE FROM planner_slots WHERE date=? AND time=?", (date, time))
+    conn.commit()
+    conn.close()
+    return {"ok": True}
+
+
+@app.post("/api/planner/{date}/task")
+async def api_add_planner_task(date: str, request: Request):
+    body = await request.json()
+    text = body.get("text", "").strip()
+    if not text:
+        return {"error": "empty text"}
+    conn = _planner_db()
+    conn.execute("INSERT INTO planner_tasks (date, text, done) VALUES (?,?,0)", (date, text))
+    conn.commit()
+    conn.close()
+    return {"ok": True}
+
+
+@app.post("/api/planner/{date}/task/{index}/toggle")
+async def api_toggle_planner_task(date: str, index: int):
+    conn = _planner_db()
+    tasks = conn.execute("SELECT id, done FROM planner_tasks WHERE date=? ORDER BY sort_order, id", (date,)).fetchall()
+    if 0 <= index < len(tasks):
+        tid = tasks[index]["id"]
+        new_done = 0 if tasks[index]["done"] else 1
+        conn.execute("UPDATE planner_tasks SET done=? WHERE id=?", (new_done, tid))
+        conn.commit()
+    conn.close()
+    return {"ok": True}
+
+
+@app.post("/api/planner/{date}/priority")
+async def api_set_priority(date: str, request: Request):
+    body = await request.json()
+    category = body.get("category", "")
+    value = body.get("value", "")
+    conn = _planner_db()
+    conn.execute("INSERT OR REPLACE INTO planner_priorities (date, category, value) VALUES (?,?,?)", (date, category, value))
+    conn.commit()
+    conn.close()
+    return {"ok": True}
+
+
+@app.post("/api/planner/{date}/bulk")
+async def api_bulk_planner(date: str, request: Request):
+    body = await request.json()
+    conn = _planner_db()
+    if "slots" in body:
+        for time, task in body["slots"].items():
+            if task:
+                conn.execute("INSERT OR REPLACE INTO planner_slots (date, time, task) VALUES (?,?,?)", (date, time, task))
+            else:
+                conn.execute("DELETE FROM planner_slots WHERE date=? AND time=?", (date, time))
+    if "priorities" in body:
+        for cat, val in body["priorities"].items():
+            conn.execute("INSERT OR REPLACE INTO planner_priorities (date, category, value) VALUES (?,?,?)", (date, cat, val))
+    if "tasks" in body:
+        for t in body["tasks"]:
+            conn.execute("INSERT INTO planner_tasks (date, text, done) VALUES (?,?,0)", (date, t))
+    conn.commit()
+    conn.close()
+    return {"ok": True}
+
+
+@app.get("/api/routines/{date}")
+async def api_get_routines(date: str):
+    conn = _planner_db()
+    result = {}
+    for period in ["morning", "afternoon", "night"]:
+        _init_routine_defaults(conn, date, period)
+        items = conn.execute("SELECT name, done FROM routine_checks WHERE date=? AND period=? ORDER BY item_index", (date, period)).fetchall()
+        result[period] = [{"name": r["name"], "done": bool(r["done"])} for r in items]
+    conn.close()
+    return result
+
+
+@app.post("/api/routines/{date}/{period}/{index}/toggle")
+async def api_toggle_routine(date: str, period: str, index: int):
+    conn = _planner_db()
+    _init_routine_defaults(conn, date, period)
+    row = conn.execute("SELECT done FROM routine_checks WHERE date=? AND period=? AND item_index=?", (date, period, index)).fetchone()
+    if row:
+        conn.execute("UPDATE routine_checks SET done=? WHERE date=? AND period=? AND item_index=?", (0 if row["done"] else 1, date, period, index))
+        conn.commit()
+    conn.close()
+    return {"ok": True}
+
+
+@app.post("/api/routines/{date}/{period}")
+async def api_add_routine_item(date: str, period: str, request: Request):
+    body = await request.json()
+    name = body.get("name", "").strip()
+    if not name:
+        return {"error": "empty"}
+    conn = _planner_db()
+    _init_routine_defaults(conn, date, period)
+    max_idx = conn.execute("SELECT MAX(item_index) FROM routine_checks WHERE date=? AND period=?", (date, period)).fetchone()[0] or 0
+    new_idx = max_idx + 1
+    conn.execute("INSERT INTO routine_checks (date, period, item_index, done, name) VALUES (?,?,?,0,?)", (date, period, new_idx, name))
+    tmpl_count = conn.execute("SELECT COUNT(*) FROM routine_templates WHERE period=? AND name=?", (period, name)).fetchone()[0]
+    if not tmpl_count:
+        tmpl_max = conn.execute("SELECT MAX(sort_order) FROM routine_templates WHERE period=?", (period,)).fetchone()[0] or 0
+        conn.execute("INSERT INTO routine_templates (period, name, sort_order) VALUES (?,?,?)", (period, name, tmpl_max + 1))
+    conn.commit()
+    conn.close()
+    return {"ok": True}
+
+
+@app.get("/api/routines/streak")
+async def api_routine_streak():
+    conn = _planner_db()
+    days = []
+    today = datetime.now().date()
+    for i in range(29, -1, -1):
+        d = today - timedelta(days=i)
+        dk = d.isoformat()
+        total = conn.execute("SELECT COUNT(*) FROM routine_checks WHERE date=?", (dk,)).fetchone()[0]
+        done = conn.execute("SELECT COUNT(*) FROM routine_checks WHERE date=? AND done=1", (dk,)).fetchone()[0]
+        pct = round(done / total * 100) if total > 0 else 0
+        days.append({"date": dk, "pct": pct})
+    conn.close()
+    return {"days": days}
 
 
 # ------------------------------------------------------------------
