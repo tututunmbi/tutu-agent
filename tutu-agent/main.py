@@ -1527,19 +1527,18 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
     ['instagram', 'twitter', 'tiktok', 'youtube', 'linkedin'].forEach(p => loadPlatformDetail(p));
 
     // ===== NAVIGATION =====
-    document.querySelectorAll('.nav-item').forEach(item => {
-      item.addEventListener('click', function() {
-        document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-        document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
-        this.classList.add('active');
-        const panelName = this.dataset.panel;
-        const panel = document.getElementById('panel-' + panelName);
-        if (panel) panel.classList.add('active');
-        // Load fresh platform data from Metricool when navigating
-        if (['instagram', 'twitter', 'tiktok', 'youtube', 'linkedin'].includes(panelName)) {
-          loadPlatformDetail(panelName);
-        }
-      });
+    document.querySelector('.sidebar-nav').addEventListener('click', function(e) {
+      const item = e.target.closest('.nav-item');
+      if (!item) return;
+      document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+      document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+      item.classList.add('active');
+      const panelName = item.dataset.panel;
+      const panel = document.getElementById('panel-' + panelName);
+      if (panel) panel.classList.add('active');
+      if (['instagram', 'twitter', 'tiktok', 'youtube', 'linkedin'].includes(panelName)) {
+        loadPlatformDetail(panelName);
+      }
     });
 
     // ===== TIME OF DAY =====
@@ -2127,12 +2126,26 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
           const slot = document.createElement('div');
           slot.className = 'planner-slot';
           slot.dataset.time = time;
-          slot.innerHTML = '<div class="planner-slot-time">' + time + '</div>' +
-            '<div class="planner-slot-content">' +
-            '<input class="planner-slot-input" placeholder="Click to add..." data-time="' + time + '" ' +
-            'onfocus="this.placeholder=\\'\\'" onblur="savePlannerSlot(this)">' +
-            '<button class="planner-slot-remove" onclick="clearPlannerSlot(this)" title="Clear">&times;</button>' +
-            '</div>';
+          const timeDiv = document.createElement('div');
+          timeDiv.className = 'planner-slot-time';
+          timeDiv.textContent = time;
+          const contentDiv = document.createElement('div');
+          contentDiv.className = 'planner-slot-content';
+          const inp = document.createElement('input');
+          inp.className = 'planner-slot-input';
+          inp.placeholder = 'Click to add...';
+          inp.dataset.time = time;
+          inp.addEventListener('focus', function(){ this.placeholder = ''; });
+          inp.addEventListener('blur', function(){ savePlannerSlot(this); });
+          const removeBtn = document.createElement('button');
+          removeBtn.className = 'planner-slot-remove';
+          removeBtn.innerHTML = '&times;';
+          removeBtn.title = 'Clear';
+          removeBtn.addEventListener('click', function(){ clearPlannerSlot(this); });
+          contentDiv.appendChild(inp);
+          contentDiv.appendChild(removeBtn);
+          slot.appendChild(timeDiv);
+          slot.appendChild(contentDiv);
           grid.appendChild(slot);
         }
       }
@@ -2270,14 +2283,22 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
 
     function renderRoutineItems(period, items) {
       const container = document.getElementById('routine-' + period + '-items');
-      container.innerHTML = items.map((item, i) => {
+      container.innerHTML = '';
+      items.forEach((item, i) => {
         const name = typeof item === 'string' ? item : item.name;
         const done = typeof item === 'object' ? item.done : false;
-        return '<div class="routine-item">' +
-          '<div class="routine-check ' + (done ? 'checked' : '') + '" onclick="toggleRoutine(\\'' + period + '\\', ' + i + ')"></div>' +
-          '<div class="routine-check-label ' + (done ? 'done' : '') + '">' + escapeHtml(name) + '</div>' +
-          '</div>';
-      }).join('');
+        const div = document.createElement('div');
+        div.className = 'routine-item';
+        const check = document.createElement('div');
+        check.className = 'routine-check' + (done ? ' checked' : '');
+        check.addEventListener('click', function() { toggleRoutine(period, i); });
+        const label = document.createElement('div');
+        label.className = 'routine-check-label' + (done ? ' done' : '');
+        label.textContent = name;
+        div.appendChild(check);
+        div.appendChild(label);
+        container.appendChild(div);
+      });
       const total = items.length;
       const checked = items.filter(it => typeof it === 'object' ? it.done : false).length;
       const pct = total > 0 ? Math.round(checked / total * 100) : 0;
