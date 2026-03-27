@@ -775,6 +775,12 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
 
         <div class="nav-item" data-panel="planner">
           <div class="nav-icon"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></div>
+            <div class="nav-item" data-panel="content-ideas">
+              <span class="nav-icon">\u{1F4A1}</span> Content Ideas
+            </div>
+            <div class="nav-item" data-panel="content-calendar">
+              <span class="nav-icon">\u{1F4C5}</span> Content Calendar
+            </div>
           <span>Daily Planner</span>
         </div>
         <div class="nav-item" data-panel="routines">
@@ -822,7 +828,7 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
           </div>
           <div class="chat-input-bar">
             <div class="chat-input-wrap">
-              <input type="text" class="chat-input" id="chat-input" placeholder="Ask Imani anything..." autocomplete="off">
+              <textarea class="chat-input" id="chat-input" placeholder="Ask Imani anything..." autocomplete="off" rows="1"></textarea>
               <button class="chat-send" id="chat-send">
                 <svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4z"/></svg>
               </button>
@@ -1360,6 +1366,87 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
         </div>
       </form>
     </div>
+          <div class="panel"><div class="content-ideas-page">
+            <div class="page-content">
+              <h2 style="color:var(--accent);margin-bottom:8px">Content Ideas</h2>
+              <p style="color:var(--text-muted);margin-bottom:20px">Dump ideas here. Move the best ones to your Content Calendar.</p>
+              <div style="display:flex;gap:10px;margin-bottom:20px;flex-wrap:wrap">
+                <textarea id="new-idea-text" placeholder="What is the idea?" style="flex:1;min-width:200px;padding:10px;background:var(--bg-surface);border:1px solid var(--border);border-radius:8px;color:var(--text-primary);font-family:Inter,sans-serif;font-size:14px;resize:vertical;min-height:60px"></textarea>
+                <div style="display:flex;flex-direction:column;gap:6px">
+                  <select id="new-idea-platform" style="padding:8px;background:var(--bg-surface);border:1px solid var(--border);border-radius:8px;color:var(--text-primary);font-size:13px">
+                    <option value="">Platform</option>
+                    <option value="Instagram">Instagram</option>
+                    <option value="Twitter/X">Twitter/X</option>
+                    <option value="TikTok">TikTok</option>
+                    <option value="YouTube">YouTube</option>
+                    <option value="LinkedIn">LinkedIn</option>
+                    <option value="Newsletter">Newsletter</option>
+                    <option value="Blog">Blog</option>
+                    <option value="Multi">Multi-platform</option>
+                  </select>
+                  <select id="new-idea-category" style="padding:8px;background:var(--bg-surface);border:1px solid var(--border);border-radius:8px;color:var(--text-primary);font-size:13px">
+                    <option value="">Category</option>
+                    <option value="Educational">Educational</option>
+                    <option value="Personal Story">Personal Story</option>
+                    <option value="Client Win">Client Win</option>
+                    <option value="Behind the Scenes">Behind the Scenes</option>
+                    <option value="Industry Insight">Industry Insight</option>
+                    <option value="Promotional">Promotional</option>
+                    <option value="Engagement">Engagement</option>
+                    <option value="Thought Leadership">Thought Leadership</option>
+                  </select>
+                  <button onclick="addIdea()" style="padding:8px 16px;background:var(--accent);color:white;border:none;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600">+ Add Idea</button>
+                </div>
+              </div>
+              <div id="ideas-list" style="display:flex;flex-direction:column;gap:10px"></div>
+            </div>
+          </div></div>
+          <div class="panel"><div class="content-calendar-page">
+            <div class="page-content">
+              <h2 style="color:var(--accent);margin-bottom:8px">Content Calendar</h2>
+              <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px">
+                <button onclick="changeWeek(-1)" style="padding:6px 12px;background:var(--bg-surface);border:1px solid var(--border);border-radius:6px;color:var(--text-primary);cursor:pointer">&larr;</button>
+                <span id="cal-week-label" style="color:var(--text-primary);font-weight:600;font-size:15px"></span>
+                <button onclick="changeWeek(1)" style="padding:6px 12px;background:var(--bg-surface);border:1px solid var(--border);border-radius:6px;color:var(--text-primary);cursor:pointer">&rarr;</button>
+                <button onclick="openAddCalEntry()" style="margin-left:auto;padding:8px 16px;background:var(--accent);color:white;border:none;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600">+ Schedule Content</button>
+              </div>
+              <div id="cal-grid" style="display:grid;grid-template-columns:repeat(7,1fr);gap:8px;min-height:400px"></div>
+              <div id="cal-modal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.6);z-index:2000;justify-content:center;align-items:center">
+                <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:24px;max-width:400px;width:90%">
+                  <h3 style="color:var(--accent);margin-bottom:16px">Schedule Content</h3>
+                  <div style="display:flex;flex-direction:column;gap:10px">
+                    <input id="cal-title" placeholder="Title" style="padding:10px;background:var(--bg-surface);border:1px solid var(--border);border-radius:8px;color:var(--text-primary);font-size:14px">
+                    <input id="cal-date" type="date" style="padding:10px;background:var(--bg-surface);border:1px solid var(--border);border-radius:8px;color:var(--text-primary);font-size:14px">
+                    <select id="cal-platform" style="padding:10px;background:var(--bg-surface);border:1px solid var(--border);border-radius:8px;color:var(--text-primary);font-size:14px">
+                      <option value="">Platform</option>
+                      <option value="Instagram">Instagram</option>
+                      <option value="Twitter/X">Twitter/X</option>
+                      <option value="TikTok">TikTok</option>
+                      <option value="YouTube">YouTube</option>
+                      <option value="LinkedIn">LinkedIn</option>
+                      <option value="Newsletter">Newsletter</option>
+                      <option value="Blog">Blog</option>
+                    </select>
+                    <select id="cal-type" style="padding:10px;background:var(--bg-surface);border:1px solid var(--border);border-radius:8px;color:var(--text-primary);font-size:14px">
+                      <option value="">Content Type</option>
+                      <option value="Post">Post</option>
+                      <option value="Carousel">Carousel</option>
+                      <option value="Reel/Video">Reel/Video</option>
+                      <option value="Story">Story</option>
+                      <option value="Thread">Thread</option>
+                      <option value="Article">Article</option>
+                      <option value="Live">Live</option>
+                    </select>
+                    <textarea id="cal-desc" placeholder="Description / notes" rows="3" style="padding:10px;background:var(--bg-surface);border:1px solid var(--border);border-radius:8px;color:var(--text-primary);font-size:14px;resize:vertical"></textarea>
+                    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:8px">
+                      <button onclick="closeCalModal()" style="padding:8px 16px;background:var(--bg-surface);border:1px solid var(--border);border-radius:8px;color:var(--text-primary);cursor:pointer">Cancel</button>
+                      <button onclick="saveCalEntry()" style="padding:8px 16px;background:var(--accent);color:white;border:none;border-radius:8px;cursor:pointer;font-weight:600">Save</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div</div>>
   </div>
 
   <script>
@@ -2567,6 +2654,157 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
   });
 })();
 </script>
+
+    <script>
+    // Auto-resize textarea as user types
+    (function() {
+      const ta = document.getElementById('chat-input');
+      if (ta && ta.tagName === 'TEXTAREA') {
+        ta.addEventListener('input', function() {
+          this.style.height = 'auto';
+          this.style.height = Math.min(this.scrollHeight, 120) + 'px';
+        });
+      }
+    })();
+    </script>
+
+    <script>
+    // ===== CONTENT IDEAS =====
+    async function addIdea() {
+      const idea = document.getElementById('new-idea-text').value.trim();
+      if (!idea) return;
+      const platform = document.getElementById('new-idea-platform').value;
+      const category = document.getElementById('new-idea-category').value;
+      await fetch('/api/content-ideas', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({idea, platform, category})
+      });
+      document.getElementById('new-idea-text').value = '';
+      loadIdeas();
+    }
+    async function loadIdeas() {
+      const res = await fetch('/api/content-ideas');
+      const data = await res.json();
+      const list = document.getElementById('ideas-list');
+      if (!list) return;
+      const platformColors = {Instagram:'#E1306C',['Twitter/X']:'#1DA1F2',TikTok:'#00f2ea',YouTube:'#FF0000',LinkedIn:'#0077B5',Newsletter:'#FFB347',Blog:'#98D8C8',Multi:'#C7A0DC'};
+      list.innerHTML = data.ideas.map(i => {
+        const pc = platformColors[i.platform] || 'var(--border)';
+        const statusBadge = i.status === 'scheduled' ? '<span style="background:#2ecc71;color:white;padding:2px 8px;border-radius:10px;font-size:11px">Scheduled</span>' : i.status === 'in-progress' ? '<span style="background:var(--accent);color:white;padding:2px 8px;border-radius:10px;font-size:11px">In Progress</span>' : '';
+        return '<div style="background:var(--bg-surface);border:1px solid var(--border);border-left:3px solid '+pc+';border-radius:8px;padding:14px;display:flex;justify-content:space-between;align-items:flex-start;gap:12px">' +
+          '<div style="flex:1"><div style="color:var(--text-primary);font-size:14px;margin-bottom:6px">'+i.idea+'</div>' +
+          '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">' +
+          (i.platform ? '<span style="color:'+pc+';font-size:12px;font-weight:600">'+i.platform+'</span>' : '') +
+          (i.category ? '<span style="color:var(--text-muted);font-size:12px">'+i.category+'</span>' : '') +
+          statusBadge +
+          '<span style="color:var(--text-muted);font-size:11px">'+new Date(i.created_at).toLocaleDateString()+'</span></div></div>' +
+          '<div style="display:flex;gap:6px">' +
+          '<button onclick="moveToCalendar('+i.id+',\''+i.idea.replace(/'/g,'').substring(0,50)+'\',\''+i.platform+'\')" style="padding:4px 10px;background:var(--bg-card);border:1px solid var(--border);border-radius:6px;color:var(--accent);cursor:pointer;font-size:12px" title="Move to Calendar">Cal</button>' +
+          '<button onclick="deleteIdea('+i.id+')" style="padding:4px 10px;background:var(--bg-card);border:1px solid var(--border);border-radius:6px;color:var(--text-muted);cursor:pointer;font-size:12px" title="Delete">X</button></div></div>';
+      }).join('');
+    }
+    async function deleteIdea(id) {
+      await fetch('/api/content-ideas/'+id, {method:'DELETE'});
+      loadIdeas();
+    }
+    function moveToCalendar(id, title, platform) {
+      document.querySelector('[data-panel="content-calendar"]').click();
+      setTimeout(function(){
+        openAddCalEntry();
+        document.getElementById('cal-title').value = title;
+        if (platform) document.getElementById('cal-platform').value = platform;
+      }, 300);
+    }
+
+    // ===== CONTENT CALENDAR =====
+    var calWeekStart = getMonday(new Date());
+    function getMonday(d) {
+      d = new Date(d);
+      var day = d.getDay();
+      var diff = d.getDate() - day + (day === 0 ? -6 : 1);
+      return new Date(d.setDate(diff));
+    }
+    function formatDate(d) {
+      return d.toISOString().split('T')[0];
+    }
+    function changeWeek(dir) {
+      calWeekStart = new Date(calWeekStart.getTime() + dir * 7 * 86400000);
+      loadCalendar();
+    }
+    function openAddCalEntry() {
+      var modal = document.getElementById('cal-modal');
+      modal.style.display = 'flex';
+      document.getElementById('cal-date').value = formatDate(calWeekStart);
+    }
+    function closeCalModal() {
+      document.getElementById('cal-modal').style.display = 'none';
+      document.getElementById('cal-title').value = '';
+      document.getElementById('cal-desc').value = '';
+    }
+    async function saveCalEntry() {
+      var title = document.getElementById('cal-title').value.trim();
+      if (!title) return;
+      await fetch('/api/content-calendar', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+          title: title,
+          date: document.getElementById('cal-date').value,
+          platform: document.getElementById('cal-platform').value,
+          content_type: document.getElementById('cal-type').value,
+          description: document.getElementById('cal-desc').value
+        })
+      });
+      closeCalModal();
+      loadCalendar();
+    }
+    async function deleteCalEntry(id) {
+      await fetch('/api/content-calendar/'+id, {method:'DELETE'});
+      loadCalendar();
+    }
+    async function loadCalendar() {
+      var label = document.getElementById('cal-week-label');
+      var grid = document.getElementById('cal-grid');
+      if (!label || !grid) return;
+      var ws = formatDate(calWeekStart);
+      var days = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+      label.textContent = 'Week of ' + calWeekStart.toLocaleDateString('en-US', {month:'short',day:'numeric',year:'numeric'});
+      var res = await fetch('/api/content-calendar?week_start='+ws);
+      var data = await res.json();
+      var byDate = {};
+      data.entries.forEach(function(e) { if (!byDate[e.date]) byDate[e.date] = []; byDate[e.date].push(e); });
+      var platformColors = {Instagram:'#E1306C',['Twitter/X']:'#1DA1F2',TikTok:'#00f2ea',YouTube:'#FF0000',LinkedIn:'#0077B5',Newsletter:'#FFB347',Blog:'#98D8C8'};
+      var html = '';
+      for (var i = 0; i < 7; i++) {
+        var d = new Date(calWeekStart.getTime() + i * 86400000);
+        var ds = formatDate(d);
+        var isToday = ds === formatDate(new Date());
+        var entries = byDate[ds] || [];
+        html += '<div style="background:var(--bg-surface);border:1px solid '+(isToday?'var(--accent)':'var(--border)')+';border-radius:8px;padding:10px;min-height:120px">';
+        html += '<div style="font-size:12px;font-weight:600;color:'+(isToday?'var(--accent)':'var(--text-muted)')+';margin-bottom:8px">'+days[i]+' '+d.getDate()+'</div>';
+        entries.forEach(function(e) {
+          var pc = platformColors[e.platform] || 'var(--border)';
+          html += '<div style="background:var(--bg-card);border-left:3px solid '+pc+';border-radius:4px;padding:6px 8px;margin-bottom:6px;font-size:12px">';
+          html += '<div style="color:var(--text-primary);font-weight:500">'+e.title+'</div>';
+          html += '<div style="color:'+pc+';font-size:11px">'+[e.platform,e.content_type].filter(Boolean).join(' | ')+'</div>';
+          html += '<button onclick="deleteCalEntry('+e.id+')" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:10px;padding:2px;float:right;margin-top:-20px">x</button>';
+          html += '</div>';
+        });
+        html += '</div>';
+      }
+      grid.innerHTML = html;
+    }
+    // Load when pages become visible
+    var _origNavClick = null;
+    document.querySelectorAll('.nav-item').forEach(function(item) {
+      item.addEventListener('click', function() {
+        var panel = this.dataset.panel;
+        if (panel === 'content-ideas') setTimeout(loadIdeas, 100);
+        if (panel === 'content-calendar') setTimeout(loadCalendar, 100);
+      });
+    });
+    </script>
 </body>
 </html>"""
 
@@ -2831,6 +3069,8 @@ def _planner_db():
     conn.execute("CREATE TABLE IF NOT EXISTS routine_templates (period TEXT, name TEXT, sort_order INTEGER DEFAULT 0)")
     conn.execute("CREATE TABLE IF NOT EXISTS routine_checks (date TEXT, period TEXT, item_index INTEGER, done INTEGER DEFAULT 0, name TEXT, PRIMARY KEY(date, period, item_index))")
     conn.execute("CREATE TABLE IF NOT EXISTS audit_entries (id INTEGER PRIMARY KEY AUTOINCREMENT, timestamp TEXT, date TEXT, task TEXT, category TEXT, energy_before INTEGER, energy_after INTEGER, feeling TEXT, focus_level TEXT, requires_me TEXT, could_delegate TEXT, could_automate TEXT, interruptions TEXT, trigger_reason TEXT, notes TEXT)")
+    conn.execute("CREATE TABLE IF NOT EXISTS content_ideas (id INTEGER PRIMARY KEY AUTOINCREMENT, created_at TEXT, idea TEXT, platform TEXT, category TEXT, status TEXT DEFAULT 'new', notes TEXT, priority INTEGER DEFAULT 0)")
+    conn.execute("CREATE TABLE IF NOT EXISTS content_calendar (id INTEGER PRIMARY KEY AUTOINCREMENT, date TEXT, platform TEXT, content_type TEXT, title TEXT, description TEXT, status TEXT DEFAULT 'planned', idea_id INTEGER, time_slot TEXT, notes TEXT)")
     conn.row_factory = sqlite3.Row
     return conn
 
@@ -3027,6 +3267,125 @@ async def api_get_audit_summary():
     conn.close()
     return {"total": total, "by_category": by_category, "by_feeling": by_feeling, "by_date": by_date}
 
+
+
+@app.post("/api/content-ideas")
+async def api_add_content_idea(request: Request):
+    body = await request.json()
+    conn = _planner_db()
+    from datetime import datetime as _dt
+    ts = _dt.now().strftime("%Y-%m-%d %H:%M:%S")
+    conn.execute(
+        "INSERT INTO content_ideas (created_at, idea, platform, category, status, notes, priority) VALUES (?,?,?,?,?,?,?)",
+        (ts, body.get("idea",""), body.get("platform",""), body.get("category",""), body.get("status","new"), body.get("notes",""), body.get("priority", 0))
+    )
+    conn.commit()
+    idea_id = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
+    conn.close()
+    return {"ok": True, "id": idea_id}
+
+@app.get("/api/content-ideas")
+async def api_get_content_ideas(status: str = None, platform: str = None):
+    conn = _planner_db()
+    query = "SELECT * FROM content_ideas"
+    params = []
+    conditions = []
+    if status:
+        conditions.append("status=?")
+        params.append(status)
+    if platform:
+        conditions.append("platform=?")
+        params.append(platform)
+    if conditions:
+        query += " WHERE " + " AND ".join(conditions)
+    query += " ORDER BY priority DESC, created_at DESC"
+    rows = conn.execute(query, params).fetchall()
+    ideas = [dict(r) for r in rows]
+    conn.close()
+    return {"ideas": ideas}
+
+@app.put("/api/content-ideas/{idea_id}")
+async def api_update_content_idea(idea_id: int, request: Request):
+    body = await request.json()
+    conn = _planner_db()
+    fields = []
+    values = []
+    for key in ["idea", "platform", "category", "status", "notes", "priority"]:
+        if key in body:
+            fields.append(f"{key}=?")
+            values.append(body[key])
+    if fields:
+        values.append(idea_id)
+        conn.execute(f"UPDATE content_ideas SET {', '.join(fields)} WHERE id=?", values)
+        conn.commit()
+    conn.close()
+    return {"ok": True}
+
+@app.delete("/api/content-ideas/{idea_id}")
+async def api_delete_content_idea(idea_id: int):
+    conn = _planner_db()
+    conn.execute("DELETE FROM content_ideas WHERE id=?", (idea_id,))
+    conn.commit()
+    conn.close()
+    return {"ok": True}
+
+@app.post("/api/content-calendar")
+async def api_add_content_calendar(request: Request):
+    body = await request.json()
+    conn = _planner_db()
+    conn.execute(
+        "INSERT INTO content_calendar (date, platform, content_type, title, description, status, idea_id, time_slot, notes) VALUES (?,?,?,?,?,?,?,?,?)",
+        (body.get("date",""), body.get("platform",""), body.get("content_type",""), body.get("title",""), body.get("description",""), body.get("status","planned"), body.get("idea_id"), body.get("time_slot",""), body.get("notes",""))
+    )
+    conn.commit()
+    entry_id = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
+    conn.close()
+    return {"ok": True, "id": entry_id}
+
+@app.get("/api/content-calendar")
+async def api_get_content_calendar(week_start: str = None, platform: str = None):
+    conn = _planner_db()
+    query = "SELECT * FROM content_calendar"
+    params = []
+    conditions = []
+    if week_start:
+        conditions.append("date >= ? AND date <= date(?, '+6 days')")
+        params.extend([week_start, week_start])
+    if platform:
+        conditions.append("platform=?")
+        params.append(platform)
+    if conditions:
+        query += " WHERE " + " AND ".join(conditions)
+    query += " ORDER BY date, time_slot"
+    rows = conn.execute(query, params).fetchall()
+    entries = [dict(r) for r in rows]
+    conn.close()
+    return {"entries": entries}
+
+@app.put("/api/content-calendar/{entry_id}")
+async def api_update_content_calendar(entry_id: int, request: Request):
+    body = await request.json()
+    conn = _planner_db()
+    fields = []
+    values = []
+    for key in ["date", "platform", "content_type", "title", "description", "status", "idea_id", "time_slot", "notes"]:
+        if key in body:
+            fields.append(f"{key}=?")
+            values.append(body[key])
+    if fields:
+        values.append(entry_id)
+        conn.execute(f"UPDATE content_calendar SET {', '.join(fields)} WHERE id=?", values)
+        conn.commit()
+    conn.close()
+    return {"ok": True}
+
+@app.delete("/api/content-calendar/{entry_id}")
+async def api_delete_content_calendar(entry_id: int):
+    conn = _planner_db()
+    conn.execute("DELETE FROM content_calendar WHERE id=?", (entry_id,))
+    conn.commit()
+    conn.close()
+    return {"ok": True}
 
 @app.get("/api/routines/{date}")
 async def api_get_routines(date: str):
