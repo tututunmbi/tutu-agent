@@ -18,6 +18,7 @@ import logging
 import anthropic
 from datetime import datetime
 from zoneinfo import ZoneInfo
+import sqlite3
 
 logger = logging.getLogger(__name__)
 
@@ -1166,16 +1167,35 @@ class TutuAdvisor:
                 return json.dumps(result)
 
             elif tool_name == "add_content_idea":
-                if not self.sheets or not self.sheets.is_connected():
-                    return json.dumps({"success": False, "error": "Google Sheets not connected."})
-                result = self.sheets.add_content_idea({
-                    "source": tool_input.get("source", "Conversation with Imani"),
-                    "idea": tool_input["idea"],
-                    "format": tool_input["format"],
-                    "channel": tool_input["channel"],
-                    "priority": tool_input.get("priority", "Medium"),
-                })
-                return json.dumps(result)
+                # Save to local SQLite so it shows in the Content Ideas UI panel
+                idea_text = tool_input["idea"]
+                platform = tool_input.get("channel", "")
+                category = tool_input.get("format", "")
+                priority_str = tool_input.get("priority", "Medium")
+                priority_int = {"High": 2, "Medium": 1, "Low": 0}.get(priority_str, 1)
+                source = tool_input.get("source", "Conversation with Imani")
+                try:
+                    planner_db = os.getenv("PLANNER_DB_PATH", "planner.db")
+                    conn = sqlite3.connect(planner_db)
+                    conn.execute("CREATE TABLE IF NOT EXISTS content_ideas (id INTEGER PRIMARY KEY AUTOINCREMENT, created_at TEXT, idea TEXT, platform TEXT, category TEXT, status TEXT DEFAULT 'new', notes TEXT, priority INTEGER DEFAULT 0)")
+                    ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                    conn.execute("INSERT INTO content_ideas (created_at, idea, platform, category, status, notes, priority) VALUES (?,?,?,?,?,?,?)", (ts, idea_text, platform, category, "new", source, priority_int))
+                    conn.commit()
+                    idea_id = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
+                    conn.close()
+                    local_ok = True
+                except Exception as e:
+                    logger.error(f"Failed to save content idea to local DB: {e}")
+                    local_ok = False
+                    idea_id = None
+                # Also save to Google Sheets if connected
+                sheets_result = None
+                if self.sheets and self.sheets.is_connected():
+                    try:
+                        sheets_result = self.sheets.add_content_idea({"source": source, "idea": idea_text, "format": category, "channel": platform, "priority": priority_str})
+                    except Exception as e:
+                        logger.error(f"Failed to save content idea to Sheets: {e}")
+                return json.dumps({"success": local_ok, "id": idea_id, "sheets": sheets_result})
 
             elif tool_name == "read_sheet_tab":
                 if not self.sheets or not self.sheets.is_connected():
@@ -2669,16 +2689,35 @@ class TutuAdvisor:
                 return json.dumps(result)
 
             elif tool_name == "add_content_idea":
-                if not self.sheets or not self.sheets.is_connected():
-                    return json.dumps({"success": False, "error": "Google Sheets not connected."})
-                result = self.sheets.add_content_idea({
-                    "source": tool_input.get("source", "Conversation with Imani"),
-                    "idea": tool_input["idea"],
-                    "format": tool_input["format"],
-                    "channel": tool_input["channel"],
-                    "priority": tool_input.get("priority", "Medium"),
-                })
-                return json.dumps(result)
+                # Save to local SQLite so it shows in the Content Ideas UI panel
+                idea_text = tool_input["idea"]
+                platform = tool_input.get("channel", "")
+                category = tool_input.get("format", "")
+                priority_str = tool_input.get("priority", "Medium")
+                priority_int = {"High": 2, "Medium": 1, "Low": 0}.get(priority_str, 1)
+                source = tool_input.get("source", "Conversation with Imani")
+                try:
+                    planner_db = os.getenv("PLANNER_DB_PATH", "planner.db")
+                    conn = sqlite3.connect(planner_db)
+                    conn.execute("CREATE TABLE IF NOT EXISTS content_ideas (id INTEGER PRIMARY KEY AUTOINCREMENT, created_at TEXT, idea TEXT, platform TEXT, category TEXT, status TEXT DEFAULT 'new', notes TEXT, priority INTEGER DEFAULT 0)")
+                    ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                    conn.execute("INSERT INTO content_ideas (created_at, idea, platform, category, status, notes, priority) VALUES (?,?,?,?,?,?,?)", (ts, idea_text, platform, category, "new", source, priority_int))
+                    conn.commit()
+                    idea_id = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
+                    conn.close()
+                    local_ok = True
+                except Exception as e:
+                    logger.error(f"Failed to save content idea to local DB: {e}")
+                    local_ok = False
+                    idea_id = None
+                # Also save to Google Sheets if connected
+                sheets_result = None
+                if self.sheets and self.sheets.is_connected():
+                    try:
+                        sheets_result = self.sheets.add_content_idea({"source": source, "idea": idea_text, "format": category, "channel": platform, "priority": priority_str})
+                    except Exception as e:
+                        logger.error(f"Failed to save content idea to Sheets: {e}")
+                return json.dumps({"success": local_ok, "id": idea_id, "sheets": sheets_result})
 
             elif tool_name == "read_sheet_tab":
                 if not self.sheets or not self.sheets.is_connected():
