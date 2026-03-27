@@ -1368,7 +1368,7 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
         </div>
       </form>
     </div>
-          <div class="panel"><div class="content-ideas-page">
+          <div class="panel" id="panel-content-ideas"><div class="content-ideas-page">
             <div class="page-content">
               <h2 style="color:var(--accent);margin-bottom:8px">Content Ideas</h2>
               <p style="color:var(--text-muted);margin-bottom:20px">Dump ideas here. Move the best ones to your Content Calendar.</p>
@@ -1403,7 +1403,7 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
               <div id="ideas-list" style="display:flex;flex-direction:column;gap:10px"></div>
             </div>
           </div></div>
-          <div class="panel"><div class="content-calendar-page">
+          <div class="panel" id="panel-content-calendar"><div class="content-calendar-page">
             <div class="page-content">
               <h2 style="color:var(--accent);margin-bottom:8px">Content Calendar</h2>
               <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px">
