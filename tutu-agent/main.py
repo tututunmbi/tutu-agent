@@ -2810,7 +2810,7 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
       });
     });
     // Fix: move content panels into main container so they are visible
-    var _m=document.querySelector('.mai');['panel-content-ideas','panel-content-calendar'].forEach(function(id){var p=document.getElementById(id);if(_m&&p)_m.appendChild(p);});
+    var _m=document.querySelector('.main');['panel-content-ideas','panel-content-calendar'].forEach(function(id){var p=document.getElementById(id);if(_m&&p)_m.appendChild(p);});
     </script
 </body>
 </html>"""
