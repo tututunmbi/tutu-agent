@@ -774,11 +774,11 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
         <div class="nav-label">My Day</div>
 
         <div class="nav-item" data-panel="content-ideas">
-          <span class="nav-icon">\u{1F4A1}</span>
+          <span class="nav-icon">💡</span>
           <span>Content Ideas</span>
         </div>
         <div class="nav-item" data-panel="content-calendar">
-          <span class="nav-icon">\u{1F4C5}</span>
+          <span class="nav-icon">📅</span>
           <span>Content Calendar</span>
         </div>
         <div class="nav-item" data-panel="planner">
@@ -1334,41 +1334,8 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
     </div>
   </div>
 
-  <!-- MODAL -->
-  <div class="modal-overlay" id="modal">
-    <div class="modal-box">
-      <div class="modal-title" id="modal-title">New Content</div>
-      <form id="modal-form">
-        <input type="hidden" id="modal-platform" value="">
-        <div class="field">
-          <label class="field-label">Title</label>
-          <input type="text" class="field-input" id="field-title" placeholder="e.g. Behind the scenes of our new launch" required>
-        </div>
-        <div class="field">
-          <label class="field-label">Type</label>
-          <select class="field-input" id="field-type">
-            <option value="post">Post</option>
-            <option value="reel">Reel / Video</option>
-            <option value="story">Story</option>
-            <option value="thread">Thread</option>
-            <option value="article">Article</option>
-          </select>
-        </div>
-        <div class="field">
-          <label class="field-label">Scheduled Date</label>
-          <input type="date" class="field-input" id="field-date">
-        </div>
-        <div class="field">
-          <label class="field-label">Notes</label>
-          <input type="text" class="field-input" id="field-notes" placeholder="Any extra context...">
-        </div>
-        <div class="modal-actions">
-          <button type="button" class="btn btn-ghost" onclick="closeModal()">Cancel</button>
-          <button type="submit" class="btn btn-accent">Add Content</button>
-        </div>
-      </form>
-    </div>
-          <div class="panel" id="panel-content-ideas"><div class="content-ideas-page">
+  
+    <div class="panel" id="panel-content-ideas"><div class="content-ideas-page">
             <div class="page-content">
               <h2 style="color:var(--accent);margin-bottom:8px">Content Ideas</h2>
               <p style="color:var(--text-muted);margin-bottom:20px">Dump ideas here. Move the best ones to your Content Calendar.</p>
@@ -1448,7 +1415,43 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
                 </div>
               </div>
             </div>
-          </div</div>>
+          </div>
+      </div>
+
+  <!-- MODAL -->
+  <div class="modal-overlay" id="modal">
+    <div class="modal-box">
+      <div class="modal-title" id="modal-title">New Content</div>
+      <form id="modal-form">
+        <input type="hidden" id="modal-platform" value="">
+        <div class="field">
+          <label class="field-label">Title</label>
+          <input type="text" class="field-input" id="field-title" placeholder="e.g. Behind the scenes of our new launch" required>
+        </div>
+        <div class="field">
+          <label class="field-label">Type</label>
+          <select class="field-input" id="field-type">
+            <option value="post">Post</option>
+            <option value="reel">Reel / Video</option>
+            <option value="story">Story</option>
+            <option value="thread">Thread</option>
+            <option value="article">Article</option>
+          </select>
+        </div>
+        <div class="field">
+          <label class="field-label">Scheduled Date</label>
+          <input type="date" class="field-input" id="field-date">
+        </div>
+        <div class="field">
+          <label class="field-label">Notes</label>
+          <input type="text" class="field-input" id="field-notes" placeholder="Any extra context...">
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+          <button type="submit" class="btn btn-accent">Add Content</button>
+        </div>
+      </form>
+    </div>
   </div>
 
   <script>

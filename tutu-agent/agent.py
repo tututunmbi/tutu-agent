@@ -36,7 +36,9 @@ def load_reference(filename):
 
 def build_core_prompt():
     """Build the core system prompt (always loaded, never changes per message)."""
-    today = datetime.now().strftime("%A, %B %d, %Y")
+    lagos_now = datetime.now(ZoneInfo("Africa/Lagos"))
+    today = lagos_now.strftime("%A, %B %d, %Y")
+    current_time = lagos_now.strftime("%I:%M %p WAT")
 
     return f"""You are Imani, Tutu Adetunmbi's strategic AI advisor and personal operator. Your name means "faith" in Swahili, and you were named by Tutu herself. You are the operating system behind her 10-year journey to build the Acquisition.com of the creative economy.
 
@@ -60,6 +62,10 @@ If a tool is not connected yet (returns an error about credentials), tell Tutu w
 Your voice is direct, strategic, and honest. You push back when Tutu is getting ahead of herself. You celebrate when she's executing well. You always ground advice in what Acquisition.com actually did AND in Leila's broader teachings on leadership, emotional regulation, hiring, scaling, and personal growth. You translate everything for the creative economy.
 
 Today's date: {today}
+Current time: {current_time}
+Timezone: WAT (West Africa Time, Africa/Lagos)
+
+IMPORTANT: Always use the current time above when discussing schedules, meetings, or time-sensitive topics. Do NOT guess or estimate the time.
 
 ## CRITICAL CONTEXT
 
@@ -1455,19 +1461,30 @@ class TutuAdvisor:
             # Imani evaluates, calls tools if needed, gets results, evaluates again.
             # Repeats until she has a final text response (no more tool calls).
             for round_num in range(MAX_TOOL_ROUNDS):
-                response = self.client.messages.create(
-                    model=MODEL,
-                    max_tokens=4096,
-                    system=[
-                        {
-                            "type": "text",
-                            "text": system_prompt,
-                            "cache_control": {"type": "ephemeral"}
-                        }
-                    ],
-                    messages=messages,
-                    tools=TOOLS,
-                )
+                # Retry logic for API overload (529) errors
+                response = None
+                for _attempt in range(3):
+                    try:
+                        response = self.client.messages.create(
+                            model=MODEL,
+                            max_tokens=4096,
+                            system=[
+                                {
+                                    "type": "text",
+                                    "text": system_prompt,
+                                    "cache_control": {"type": "ephemeral"}
+                                }
+                            ],
+                            messages=messages,
+                            tools=TOOLS,
+                        )
+                        break
+                    except Exception as _api_err:
+                        if _attempt < 2 and ("overloaded" in str(_api_err).lower() or "529" in str(_api_err)):
+                            import time as _time
+                            _time.sleep(3 * (_attempt + 1))
+                            continue
+                        raise
 
                 # Check if there are any tool calls in the response
                 tool_calls = [block for block in response.content if block.type == "tool_use"]
@@ -1566,7 +1583,9 @@ def load_reference(filename):
 
 def build_core_prompt():
     """Build the core system prompt (always loaded, never changes per message)."""
-    today = datetime.now().strftime("%A, %B %d, %Y")
+    lagos_now = datetime.now(ZoneInfo("Africa/Lagos"))
+    today = lagos_now.strftime("%A, %B %d, %Y")
+    current_time = lagos_now.strftime("%I:%M %p WAT")
 
     return f"""You are Imani, Tutu Adetunmbi's strategic AI advisor and personal operator. Your name means "faith" in Swahili, and you were named by Tutu herself. You are the operating system behind her 10-year journey to build the Acquisition.com of the creative economy.
 
@@ -1590,6 +1609,10 @@ If a tool is not connected yet (returns an error about credentials), tell Tutu w
 Your voice is direct, strategic, and honest. You push back when Tutu is getting ahead of herself. You celebrate when she's executing well. You always ground advice in what Acquisition.com actually did AND in Leila's broader teachings on leadership, emotional regulation, hiring, scaling, and personal growth. You translate everything for the creative economy.
 
 Today's date: {today}
+Current time: {current_time}
+Timezone: WAT (West Africa Time, Africa/Lagos)
+
+IMPORTANT: Always use the current time above when discussing schedules, meetings, or time-sensitive topics. Do NOT guess or estimate the time.
 
 ## CRITICAL CONTEXT
 
@@ -2916,19 +2939,30 @@ class TutuAdvisor:
             # Imani evaluates, calls tools if needed, gets results, evaluates again.
             # Repeats until she has a final text response (no more tool calls).
             for round_num in range(MAX_TOOL_ROUNDS):
-                response = self.client.messages.create(
-                    model=MODEL,
-                    max_tokens=4096,
-                    system=[
-                        {
-                            "type": "text",
-                            "text": system_prompt,
-                            "cache_control": {"type": "ephemeral"}
-                        }
-                    ],
-                    messages=messages,
-                    tools=TOOLS,
-                )
+                # Retry logic for API overload (529) errors
+                response = None
+                for _attempt in range(3):
+                    try:
+                        response = self.client.messages.create(
+                            model=MODEL,
+                            max_tokens=4096,
+                            system=[
+                                {
+                                    "type": "text",
+                                    "text": system_prompt,
+                                    "cache_control": {"type": "ephemeral"}
+                                }
+                            ],
+                            messages=messages,
+                            tools=TOOLS,
+                        )
+                        break
+                    except Exception as _api_err:
+                        if _attempt < 2 and ("overloaded" in str(_api_err).lower() or "529" in str(_api_err)):
+                            import time as _time
+                            _time.sleep(3 * (_attempt + 1))
+                            continue
+                        raise
 
                 # Check if there are any tool calls in the response
                 tool_calls = [block for block in response.content if block.type == "tool_use"]
