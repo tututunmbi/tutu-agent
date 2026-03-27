@@ -2809,6 +2809,8 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
         if (panel === 'content-calendar') setTimeout(loadCalendar, 100);
       });
     });
+    // Fix: move content panels into main container so they are visible
+    var _m=document.querySelector('.main');['panel-content-ideas','panel-content-calendar'].forEach(function(id){var p=document.getElementById(id);if(_m&&p)_m.appendChild(p);});
     </script>
 </body>
 </html>"""
