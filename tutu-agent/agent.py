@@ -15,7 +15,8 @@ Claude API integration with tool use, agentic loop, and full advisor context.
 import os
 import json
 import logging
-import anthropi
+import anthropic
+
 from datetime import datetime
 from zoneinfo import ZoneInfo
 import sqlite3
