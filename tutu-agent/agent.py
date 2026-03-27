@@ -568,7 +568,7 @@ TOOLS = [
     },
     {
         "name": "add_content_idea",
-        "description": "Add a content idea to the Content Pipeline in the tracker spreadsheet. Use when Tutu mentions a content idea that should be saved for later.",
+        "description": "Add a content idea to the Content Ideas dashboard. IMPORTANT: You MUST call this tool for EVERY content idea — whether Tutu mentions one or you generate ideas during content planning. Call once per idea. This is the ONLY way ideas appear in the dashboard UI.",
         "input_schema": {
             "type": "object",
             "properties": {
@@ -2150,7 +2150,7 @@ TOOLS = [
     },
     {
         "name": "add_content_idea",
-        "description": "Add a content idea to the Content Pipeline in the tracker spreadsheet. Use when Tutu mentions a content idea that should be saved for later.",
+        "description": "Add a content idea to the Content Ideas dashboard. IMPORTANT: You MUST call this tool for EVERY content idea — whether Tutu mentions one or you generate ideas during content planning. Call once per idea. This is the ONLY way ideas appear in the dashboard UI.",
         "input_schema": {
             "type": "object",
             "properties": {
