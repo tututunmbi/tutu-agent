@@ -7,7 +7,8 @@ import json
 import logging
 import anthropic
 from datetime import datetime
-"""
+from zoneinfo import ZoneInfo
+""
 Imani — The brain with hands.
 Claude API integration with tool use, agentic loop, and full advisor context.
 """
@@ -16,6 +17,7 @@ import json
 import logging
 import anthropic
 from datetime import datetime
+from zoneinfo import ZoneInfo
 
 logger = logging.getLogger(__name__)
 
