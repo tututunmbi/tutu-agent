@@ -2810,8 +2810,8 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
       });
     });
     // Fix: move content panels into main container so they are visible
-    var _m=document.querySelector('.main');['panel-content-ideas','panel-content-calendar'].forEach(function(id){var p=document.getElementById(id);if(_m&&p)_m.appendChild(p);});
-    </script>
+    var _m=document.querySelector('.mai');['panel-content-ideas','panel-content-calendar'].forEach(function(id){var p=document.getElementById(id);if(_m&&p)_m.appendChild(p);});
+    </script
 </body>
 </html>"""
 
@@ -2913,7 +2913,58 @@ async def api_overview(days: int = 7):
     if not metricool.is_connected():
         return {"error": "Metricool not configured", "data": None}
     data = await metricool.dashboard_overview(days=days)
+    # Merge manual follower overrides when Metricool returns 0
+    try:
+        db_path = os.getenv("PLANNER_DB_PATH", "planner.db")
+        mconn = sqlite3.connect(db_path)
+        mconn.execute("CREATE TABLE IF NOT EXISTS manual_metrics (platform TEXT PRIMARY KEY, followers INTEGER DEFAULT 0, updated_at TEXT)")
+        manual = {r[0]: r[1] for r in mconn.execute("SELECT platform, followers FROM manual_metrics").fetchall()}
+        mconn.close()
+        if data and "aggregations" in data:
+            aggs = data["aggregations"]
+            for p, cnt in manual.items():
+                if p in aggs and aggs[p]:
+                    k = "subscribers" if p == "youtube" else "connections" if p == "linkedin" else "followers"
+                    if not aggs[p].get(k):
+                        aggs[p][k] = cnt
+    except Exception:
+        pass
     return {"data": data}
+
+
+@app.get("/api/manual-metrics")
+async def api_get_manual_metrics():
+    """Get manual follower count overrides."""
+    try:
+        db_path = os.getenv("PLANNER_DB_PATH", "planner.db")
+        conn = sqlite3.connect(db_path)
+        conn.execute("CREATE TABLE IF NOT EXISTS manual_metrics (platform TEXT PRIMARY KEY, followers INTEGER DEFAULT 0, updated_at TEXT)")
+        rows = conn.execute("SELECT platform, followers, updated_at FROM manual_metrics").fetchall()
+        conn.close()
+        return {"data": {r[0]: {"followers": r[1], "updated_at": r[2]} for r in rows}}
+    except Exception as e:
+        return {"error": str(e)}
+
+
+@app.post("/api/manual-metrics")
+async def api_set_manual_metrics(request: Request):
+    """Set manual follower count for a platform."""
+    body = await request.json()
+    platform = body.get("platform", "").lower()
+    followers = int(body.get("followers", 0))
+    if platform not in ("instagram", "twitter", "tiktok", "youtube", "linkedin"):
+        return {"error": "Invalid platform"}
+    try:
+        db_path = os.getenv("PLANNER_DB_PATH", "planner.db")
+        conn = sqlite3.connect(db_path)
+        conn.execute("CREATE TABLE IF NOT EXISTS manual_metrics (platform TEXT PRIMARY KEY, followers INTEGER DEFAULT 0, updated_at TEXT)")
+        ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        conn.execute("INSERT OR REPLACE INTO manual_metrics (platform, followers, updated_at) VALUES (?,?,?)", (platform, followers, ts))
+        conn.commit()
+        conn.close()
+        return {"success": True, "platform": platform, "followers": followers}
+    except Exception as e:
+        return {"error": str(e)}
 
 
 @app.get("/api/platform/{platform}")

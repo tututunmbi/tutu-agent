@@ -15,7 +15,7 @@ Claude API integration with tool use, agentic loop, and full advisor context.
 import os
 import json
 import logging
-import anthropic
+import anthropi
 from datetime import datetime
 from zoneinfo import ZoneInfo
 import sqlite3
@@ -936,6 +936,25 @@ TOOLS = [
         }
     },
     {
+        "name": "update_platform_metrics",
+        "description": "Update follower/subscriber counts for a social media platform. Use when Tutu tells you her current follower count or when you need to record platform metrics manually.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "platform": {
+                    "type": "string",
+                    "enum": ["instagram", "twitter", "tiktok", "youtube", "linkedin"],
+                    "description": "Social media platform"
+                },
+                "followers": {
+                    "type": "integer",
+                    "description": "Current follower/subscriber count"
+                }
+            },
+            "required": ["platform", "followers"]
+        }
+    },
+    {
         "name": "update_daily_planner",
         "description": "MANDATORY: Update Tutu's daily planner dashboard with time-blocked tasks, priorities, and important tasks. You MUST call this tool EVERY TIME you plan Tutu's day, schedule tasks, or create a time-blocked agenda. The planner has 30-min time slots from 06:00-21:00, editable priority categories, and an important tasks list. Slots can include a category for color-coding.",
         "input_schema": {
@@ -1389,6 +1408,20 @@ class TutuAdvisor:
                 else:
                     return json.dumps({"success": False, "error": f"Unknown action: {action}"})
                 return json.dumps(result)
+            elif tool_name == "update_platform_metrics":
+                platform = tool_input["platform"].lower()
+                followers = int(tool_input["followers"])
+                try:
+                    planner_db = os.getenv("PLANNER_DB_PATH", "planner.db")
+                    conn = sqlite3.connect(planner_db)
+                    conn.execute("CREATE TABLE IF NOT EXISTS manual_metrics (platform TEXT PRIMARY KEY, followers INTEGER DEFAULT 0, updated_at TEXT)")
+                    ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                    conn.execute("INSERT OR REPLACE INTO manual_metrics (platform, followers, updated_at) VALUES (?,?,?)", (platform, followers, ts))
+                    conn.commit()
+                    conn.close()
+                    return json.dumps({"success": True, "platform": platform, "followers": followers, "message": f"Updated {platform} follower count to {followers}"})
+                except Exception as e:
+                    return json.dumps({"success": False, "error": str(e)})
 
             elif tool_name == "update_daily_planner":
                 import httpx
@@ -2458,6 +2491,25 @@ TOOLS = [
         }
     },
     {
+        "name": "update_platform_metrics",
+        "description": "Update follower/subscriber counts for a social media platform. Use when Tutu tells you her current follower count or when you need to record platform metrics manually.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "platform": {
+                    "type": "string",
+                    "enum": ["instagram", "twitter", "tiktok", "youtube", "linkedin"],
+                    "description": "Social media platform"
+                },
+                "followers": {
+                    "type": "integer",
+                    "description": "Current follower/subscriber count"
+                }
+            },
+            "required": ["platform", "followers"]
+        }
+    },
+    {
         "name": "update_daily_planner",
         "description": "MANDATORY: Update Tutu's daily planner dashboard with time-blocked tasks, priorities, and important tasks. You MUST call this tool EVERY TIME you plan Tutu's day, schedule tasks, or create a time-blocked agenda. The planner has 30-min time slots from 06:00-21:00, editable priority categories, and an important tasks list. Slots can include a category for color-coding.",
         "input_schema": {
@@ -2886,6 +2938,20 @@ class TutuAdvisor:
                 else:
                     return json.dumps({"success": False, "error": f"Unknown action: {action}"})
                 return json.dumps(result)
+            elif tool_name == "update_platform_metrics":
+                platform = tool_input["platform"].lower()
+                followers = int(tool_input["followers"])
+                try:
+                    planner_db = os.getenv("PLANNER_DB_PATH", "planner.db")
+                    conn = sqlite3.connect(planner_db)
+                    conn.execute("CREATE TABLE IF NOT EXISTS manual_metrics (platform TEXT PRIMARY KEY, followers INTEGER DEFAULT 0, updated_at TEXT)")
+                    ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                    conn.execute("INSERT OR REPLACE INTO manual_metrics (platform, followers, updated_at) VALUES (?,?,?)", (platform, followers, ts))
+                    conn.commit()
+                    conn.close()
+                    return json.dumps({"success": True, "platform": platform, "followers": followers, "message": f"Updated {platform} follower count to {followers}"})
+                except Exception as e:
+                    return json.dumps({"success": False, "error": str(e)})
 
             elif tool_name == "update_daily_planner":
                 import httpx
